@@ -1,0 +1,57 @@
+# Parkforge
+
+Parkforge is a toolchain for creating and distributing mods for PokePark Wii.
+It is dedicated to PokePark Wii, but kept as generic as possible so it may be
+reusable for other games later.
+
+## Idea
+
+Parkforge is planned as a multi-stage toolchain:
+
+1. Set up a workspace project with its folder structure and configuration.
+2. Extract the ISO as an immutable baseline.
+3. Compile source files for example, `fsc` scripts into `fsb` game binaries.
+   `rlb` support is currently only in the design phase.
+4. Build changed files from the source input. Existing files become per-file
+   patch payloads (`xdelta`?), deleted files are represented by delete markers
+   in `src`, and new files are those not present in the original manifest.
+5. Bundle the per-file patches into a custom orchestrating patch file with
+   metadata.
+6. (optionally) Create a patched ISO directly from the build output.
+
+## Currently implemented
+
+- Create and validate a project.
+- Register supported game IDs. A project can contain multiple game IDs, mostly
+  to support multiple regions of a game.
+- Extract the DATA partition of an ISO into `original/<game-id>/`.
+- Extract supported archives and record all extracted files and archive content
+  in `manifest.json`.
+- Create an empty `src/<game-id>/` overlay with the manifest's directory
+  structure.
+
+The current project layout is:
+
+```text
+project.toml         # project configuration
+original/<game-id>/  # extracted, immutable game baseline; ignored by Git
+src/<game-id>/       # source input, for example fsc scripts
+```
+
+## TODOs
+
+1. Design the custom orchestrating patch file and its edit, add, and delete
+   operations.
+2. Build changed loose files from `build/` into patch payloads (`xdelta`?).
+3. Support changes inside nested archives through the custom patch file. Also
+   support grouping by archive so all files in an archive can be patched at
+   once.
+4. Add `build/<game-id>/` and compile files from `src/` into a modified build.
+5. Design the delete-marker format.
+6. Add `dist/<game-id>/` and create the custom orchestrating patch file.
+7. Add patched-ISO output as a convenience target built from the verified
+   original baseline and the same change plan used for patch bundles.
+
+## Rules
+
+- `original/` is never modified after extraction.

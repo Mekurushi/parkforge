@@ -1,0 +1,13 @@
+[package]
+name = "parkforge-cli"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+thiserror = "2.0.18"
+parkforge-project = { path = "../parkforge-project" }
+parkforge-extractor = { path = "../parkforge-extractor" }
+parkforge-model = { path = "../parkforge-model" }
+[lints]
+workspace = true
