@@ -5,6 +5,10 @@ use std::str::FromStr;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
 
+mod staging;
+
+pub use staging::StagingDirectory;
+
 pub const MANIFEST_FILE_NAME: &str = "manifest.json";
 
 #[derive(Debug, Error)]

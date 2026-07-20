@@ -4,15 +4,16 @@ use std::path::{Path, PathBuf};
 
 use crate::config::ProjectConfig;
 use crate::error::{Error, Result};
-use crate::layout::{OriginalDir, SourceDir};
+use crate::layout::{BuildDir, OriginalDir, SourceDir};
 use parkforge_model::{GameId, VirtualPath};
 
 const PROJECT_CONFIG_FILE_NAME: &str = "project.toml";
 const GITIGNORE_FILE_NAME: &str = ".gitignore";
 const ORIGINAL_DIR_NAME: &str = "original";
 const SOURCE_DIR_NAME: &str = "src";
+const BUILD_DIR_NAME: &str = "build";
 
-const DEFAULT_GITIGNORE: &str = "/original/\n*.fsb\n*.rlb\n";
+const DEFAULT_GITIGNORE: &str = "/original/\n/build/\n/dist/\n*.fsb\n*.rlb\n";
 
 #[derive(Debug, Clone)]
 pub struct Project {
@@ -38,23 +39,17 @@ impl Project {
             path: root.to_path_buf(),
             source,
         })?;
-        for dir_name in [ORIGINAL_DIR_NAME, SOURCE_DIR_NAME] {
+        for dir_name in [ORIGINAL_DIR_NAME, SOURCE_DIR_NAME, BUILD_DIR_NAME] {
             let dir = root.join(dir_name);
-            fs::create_dir_all(&dir).map_err(|e| Error::Io {
-                path: dir,
-                source: e,
-            })?;
+            fs::create_dir_all(&dir).map_err(|source| Error::Io { path: dir, source })?;
         }
-
         project.write_config(&project.config)?;
 
         let gitignore_path = root.join(GITIGNORE_FILE_NAME);
-        fs::write(&gitignore_path, DEFAULT_GITIGNORE).map_err(|e| Error::Io {
+        fs::write(&gitignore_path, DEFAULT_GITIGNORE).map_err(|source| Error::Io {
             path: gitignore_path,
-            source: e,
+            source,
         })?;
-
-        // TODO: Add `build/` and `dist/` with implementation
         Ok(project)
     }
 
@@ -65,16 +60,14 @@ impl Project {
                 path: root.to_path_buf(),
             });
         }
-
-        let data = fs::read_to_string(&config_path).map_err(|e| Error::Io {
+        let data = fs::read_to_string(&config_path).map_err(|source| Error::Io {
             path: config_path.clone(),
-            source: e,
+            source,
         })?;
-        let config: ProjectConfig = toml::from_str(&data).map_err(|e| Error::Parse {
+        let config = toml::from_str(&data).map_err(|error| Error::Parse {
             path: config_path,
-            message: e.to_string(),
+            message: error.to_string(),
         })?;
-
         let project = Self {
             root: root.to_path_buf(),
             config,
@@ -87,7 +80,9 @@ impl Project {
     pub fn root(&self) -> &Path {
         &self.root
     }
+
     pub fn validate(&self) -> Result<()> {
+        self.config.build.validate()?;
         let declared: HashSet<GameId> = self
             .config
             .games
@@ -105,18 +100,14 @@ impl Project {
             }
         }
 
-        let original_root = self.root.join(ORIGINAL_DIR_NAME);
-        let present = Self::game_directories(&original_root)?;
-
-        for game_id in &present {
-            if !declared.contains(game_id) {
+        for game_id in Self::game_directories(&self.original_root())? {
+            if !declared.contains(&game_id) {
                 return Err(Error::UnregisteredGameDirectory {
-                    game_id: game_id.clone(),
-                    path: original_root.join(game_id.as_str()),
+                    path: self.original_root().join(game_id.as_str()),
+                    game_id,
                 });
             }
         }
-
         Ok(())
     }
 
@@ -124,33 +115,33 @@ impl Project {
         if !original_root.exists() {
             return Ok(HashSet::new());
         }
-
-        let entries = fs::read_dir(original_root).map_err(|e| Error::Io {
+        let entries = fs::read_dir(original_root).map_err(|source| Error::Io {
             path: original_root.to_path_buf(),
-            source: e,
+            source,
         })?;
-
         let mut game_ids = HashSet::new();
         for entry in entries {
-            let entry = entry.map_err(|e| Error::Io {
+            let entry = entry.map_err(|source| Error::Io {
                 path: original_root.to_path_buf(),
-                source: e,
+                source,
             })?;
-            let file_type = entry.file_type().map_err(|e| Error::Io {
-                path: entry.path(),
-                source: e,
-            })?;
-            if !file_type.is_dir() {
+            if !entry
+                .file_type()
+                .map_err(|source| Error::Io {
+                    path: entry.path(),
+                    source,
+                })?
+                .is_dir()
+            {
                 continue;
             }
-
+            let path = entry.path();
             let name = entry
                 .file_name()
                 .into_string()
-                .map_err(|_conversion_error| Error::InvalidUtf8Path { path: entry.path() })?;
+                .map_err(|_error| Error::InvalidUtf8Path { path })?;
             game_ids.insert(GameId::new(name)?);
         }
-
         Ok(game_ids)
     }
 
@@ -162,7 +153,6 @@ impl Project {
         if self.games().any(|registered| registered == &game_id) {
             return Err(Error::GameAlreadyRegistered { game_id });
         }
-
         let mut config = self.config.clone();
         config
             .games
@@ -184,7 +174,6 @@ impl Project {
 
     pub fn require_original(&self, game_id: &GameId) -> Result<OriginalDir> {
         self.require_registered_game(game_id)?;
-
         let original = self.original(game_id);
         if !original.root().is_dir() {
             return Err(Error::MissingOriginalDirectory {
@@ -202,7 +191,7 @@ impl Project {
 
     #[must_use]
     pub fn original(&self, game_id: &GameId) -> OriginalDir {
-        OriginalDir::new(self.root.join(ORIGINAL_DIR_NAME).join(game_id.as_str()))
+        OriginalDir::new(self.original_root().join(game_id.as_str()))
     }
 
     #[must_use]
@@ -210,35 +199,42 @@ impl Project {
         SourceDir::new(self.root.join(SOURCE_DIR_NAME).join(game_id.as_str()))
     }
 
+    #[must_use]
+    pub fn build(&self, game_id: &GameId) -> BuildDir {
+        BuildDir::new(self.root.join(BUILD_DIR_NAME).join(game_id.as_str()))
+    }
+
+    #[must_use]
+    pub fn build_config(&self) -> &parkforge_build::BuildConfig {
+        &self.config.build
+    }
+
     fn write_config(&self, config: &ProjectConfig) -> Result<()> {
         let config_path = self.root.join(PROJECT_CONFIG_FILE_NAME);
-        let toml = toml::to_string_pretty(config).map_err(|e| Error::Parse {
+        let data = toml::to_string_pretty(config).map_err(|error| Error::Parse {
             path: config_path.clone(),
-            message: e.to_string(),
+            message: error.to_string(),
         })?;
-        fs::write(&config_path, toml).map_err(|source| Error::Io {
+        fs::write(&config_path, data).map_err(|source| Error::Io {
             path: config_path,
             source,
         })
     }
+
     pub fn create_source_overlay(
         &self,
         game_id: &GameId,
         directories: impl IntoIterator<Item = VirtualPath>,
     ) -> Result<()> {
-        // TODO: delete marker design
         self.require_registered_game(game_id)?;
         let source_root = self.source(game_id).root().to_path_buf();
-
         for directory in directories {
             let target = directory.to_path_under(&source_root);
-
-            fs::create_dir_all(&target).map_err(|e| Error::Io {
+            fs::create_dir_all(&target).map_err(|source| Error::Io {
                 path: target,
-                source: e,
+                source,
             })?;
         }
-
         Ok(())
     }
 }
@@ -250,7 +246,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::Project;
-    use crate::{Error, ProjectConfig, ProjectMetadata};
+    use crate::{BuildConfig, Error, ProjectConfig, ProjectMetadata};
 
     static NEXT_TEST_DIRECTORY: AtomicUsize = AtomicUsize::new(0);
 
@@ -269,6 +265,7 @@ mod tests {
                 version: "0.1.0".to_owned(),
             },
             games: Vec::new(),
+            build: BuildConfig::default(),
         }
     }
 
@@ -276,14 +273,12 @@ mod tests {
     fn create_writes_a_project_that_can_be_opened() -> Result<(), Box<dyn std::error::Error>> {
         let root = test_directory();
         Project::create(&root, config())?;
-
         assert!(root.join("project.toml").is_file());
         assert!(root.join(".gitignore").is_file());
         assert!(root.join("original").is_dir());
         assert!(root.join("src").is_dir());
-        assert!(!root.join("build").exists());
+        assert!(root.join("build").is_dir());
         Project::open(&root)?;
-
         fs::remove_dir_all(root)?;
         Ok(())
     }
@@ -292,12 +287,10 @@ mod tests {
     fn create_rejects_an_existing_directory() -> Result<(), Box<dyn std::error::Error>> {
         let root = test_directory();
         fs::create_dir_all(&root)?;
-
         assert!(matches!(
             Project::create(&root, config()),
             Err(Error::ProjectAlreadyExists { .. })
         ));
-
         fs::remove_dir_all(root)?;
         Ok(())
     }

@@ -2,10 +2,12 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
-use parkforge_project::{GameId, Project, ProjectConfig, ProjectMetadata};
+use parkforge_project::{BuildConfig, GameId, Project, ProjectConfig, ProjectMetadata};
 
 #[derive(Debug, thiserror::Error)]
 enum CliError {
+    #[error(transparent)]
+    Build(#[from] parkforge_build::Error),
     #[error(transparent)]
     Project(#[from] parkforge_project::Error),
     #[error(transparent)]
@@ -37,6 +39,10 @@ enum Command {
     },
     #[command(subcommand)]
     Overlay(OverlayCommand),
+    Build {
+        path: PathBuf,
+        game_id: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -88,6 +94,7 @@ fn run(command: Command) -> Result<(), CliError> {
         Command::Project(command) => run_project(command),
         Command::Extract { path, iso, game_id } => run_extract(&path, &iso, game_id),
         Command::Overlay(command) => run_overlay(command),
+        Command::Build { path, game_id } => run_build(&path, game_id),
     }
 }
 
@@ -108,6 +115,7 @@ fn run_project_create(path: &Path, name: String, version: String) -> Result<(), 
     let config = ProjectConfig {
         project: ProjectMetadata { name, version },
         games: Vec::new(),
+        build: BuildConfig::default(),
     };
     Project::create(path, config)?;
     println!("created project at {}", path.display());
@@ -195,5 +203,22 @@ fn run_overlay_create(path: &Path, game_id: String) -> Result<(), CliError> {
         "created source overlay for {game_id} at {}",
         project.source(&game_id).root().display()
     );
+    Ok(())
+}
+
+fn run_build(path: &Path, game_id: String) -> Result<(), CliError> {
+    let project = Project::open(path)?;
+    let game_id = GameId::new(game_id)?;
+    let original = project.require_original(&game_id)?;
+    let source = project.source(&game_id);
+    let build = project.build(&game_id);
+    parkforge_build::build(&parkforge_build::BuildRequest {
+        game_id: game_id.as_str(),
+        original_root: original.root(),
+        source_root: source.root(),
+        build_root: build.root(),
+        config: project.build_config(),
+    })?;
+    println!("built game ID {game_id} into {}", build.root().display());
     Ok(())
 }

@@ -2,16 +2,14 @@ mod container;
 mod error;
 mod hash;
 mod manifest;
-mod staging_directory;
 mod wii_iso_extractor;
 
 pub use error::{Error, Result};
 pub use manifest::Manifest;
 
 use crate::container::extract_archives;
-use crate::staging_directory::StagingDirectory;
 use crate::wii_iso_extractor::WiiIsoExtractor;
-use parkforge_model::{GameId, MANIFEST_FILE_NAME};
+use parkforge_model::{GameId, MANIFEST_FILE_NAME, StagingDirectory};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -49,11 +47,18 @@ pub fn extract(iso_path: &Path, workspace_root: &Path) -> Result<Manifest> {
         return Err(Error::ExtractionTargetExists { path: game_dir });
     }
 
-    let staging = StagingDirectory::create(workspace_root, game_id.as_str())?;
+    let staging = StagingDirectory::create(workspace_root, &format!("{game_id}.extracting"))
+        .map_err(|source| Error::Io {
+            path: workspace_root.to_path_buf(),
+            source,
+        })?;
     extract_iso_into(iso_path, staging.path())?;
     let manifest = extract_archives(staging.path(), game_id)?;
     manifest.save(&staging.path().join(MANIFEST_FILE_NAME))?;
-    staging.commit(&game_dir)?;
+    staging.commit(&game_dir).map_err(|source| Error::Io {
+        path: game_dir,
+        source,
+    })?;
     Ok(manifest)
 }
 

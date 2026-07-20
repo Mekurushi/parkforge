@@ -10,6 +10,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
+    Build(#[from] parkforge_build::Error),
+    #[error(transparent)]
     GameId(#[from] parkforge_model::GameIdError),
     #[error(transparent)]
     VirtualPath(#[from] parkforge_model::VirtualPathError),

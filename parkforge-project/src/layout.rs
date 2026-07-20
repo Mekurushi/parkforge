@@ -28,6 +28,22 @@ pub struct SourceDir {
     root: PathBuf,
 }
 
+#[derive(Debug, Clone)]
+pub struct BuildDir {
+    root: PathBuf,
+}
+
+impl BuildDir {
+    pub(crate) fn new(root: PathBuf) -> Self {
+        Self { root }
+    }
+
+    #[must_use]
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+}
+
 impl SourceDir {
     pub(crate) fn new(root: PathBuf) -> Self {
         Self { root }

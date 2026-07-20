@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["parkforge-cli", "parkforge-extractor", "parkforge-model", "parkforge-project"]
+members = ["parkforge-build", "parkforge-cli", "parkforge-extractor", "parkforge-model", "parkforge-project"]
 
 [workspace.package]
 version = "0.1.0"

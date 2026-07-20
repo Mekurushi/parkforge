@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+pub use parkforge_build::BuildConfig;
 use parkforge_model::GameId;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7,6 +8,8 @@ pub struct ProjectConfig {
     pub project: ProjectMetadata,
     #[serde(rename = "game", default)]
     pub games: Vec<GameConfig>,
+    #[serde(default)]
+    pub build: BuildConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

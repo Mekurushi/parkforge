@@ -12,9 +12,10 @@ Parkforge is planned as a multi-stage toolchain:
 2. Extract the ISO as an immutable baseline.
 3. Compile source files for example, `fsc` scripts into `fsb` game binaries.
    `rlb` support is currently only in the design phase.
-4. Build changed files from the source input. Existing files become per-file
-   patch payloads (`xdelta`?), deleted files are represented by delete markers
-   in `src`, and new files are those not present in the original manifest.
+4. Materialize a complete logical build tree from the source input and original
+   baseline. Existing files become per-file patch payloads (`xdelta`?), deleted
+   files are represented by delete markers in `src`, and new files are those
+   not present in the original manifest.
 5. Bundle the per-file patches into a custom orchestrating patch file with
    metadata.
 6. (optionally) Create a patched ISO directly from the build output.
@@ -29,6 +30,8 @@ Parkforge is planned as a multi-stage toolchain:
   in `manifest.json`.
 - Create an empty `src/<game-id>/` overlay with the manifest's directory
   structure.
+- Build a complete logical `build/<game-id>/` tree from `original/` plus
+  rule-configured `src/` transformations and raw asset copies.
 
 The current project layout is:
 
@@ -36,6 +39,7 @@ The current project layout is:
 project.toml         # project configuration
 original/<game-id>/  # extracted, immutable game baseline; ignored by Git
 src/<game-id>/       # source input, for example fsc scripts
+build/<game-id>/     # complete generated logical game tree; ignored by Git
 ```
 
 ## TODOs
@@ -46,7 +50,8 @@ src/<game-id>/       # source input, for example fsc scripts
 3. Support changes inside nested archives through the custom patch file. Also
    support grouping by archive so all files in an archive can be patched at
    once.
-4. Add `build/<game-id>/` and compile files from `src/` into a modified build.
+4. Integrate compilers, beginning with FSC, to transform files from `src/` into
+   the build tree.
 5. Design the delete-marker format.
 6. Add `dist/<game-id>/` and create the custom orchestrating patch file.
 7. Add patched-ISO output as a convenience target built from the verified

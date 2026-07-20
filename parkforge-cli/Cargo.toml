@@ -9,5 +9,6 @@ thiserror = "2.0.18"
 parkforge-project = { path = "../parkforge-project" }
 parkforge-extractor = { path = "../parkforge-extractor" }
 parkforge-model = { path = "../parkforge-model" }
+parkforge-build = { path = "../parkforge-build" }
 [lints]
 workspace = true
