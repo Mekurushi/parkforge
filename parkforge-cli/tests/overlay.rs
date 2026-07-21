@@ -215,6 +215,35 @@ fn build_rejects_raw_and_compiled_output_collisions() -> Result<(), Box<dyn std:
     Ok(())
 }
 
+#[test]
+fn rebuild_requires_an_existing_build_tree() -> Result<(), Box<dyn std::error::Error>> {
+    let sequence = NEXT_TEST_DIRECTORY.fetch_add(1, Ordering::Relaxed);
+    let workspace = TestWorkspace(std::env::temp_dir().join(format!(
+        "parkforge-rebuild-test-{}-{sequence}",
+        std::process::id()
+    )));
+    let project = workspace.0.join("project");
+    let project_arg = project.to_string_lossy();
+
+    run(&[
+        "project",
+        "create",
+        &project_arg,
+        "--name",
+        "test project",
+        "--version",
+        "0.1.0",
+    ])?;
+    run(&["project", "game", "add", &project_arg, "R8AJ01"])?;
+    let original = project.join("original/R8AJ01");
+    fs::create_dir_all(&original)?;
+    fs::write(original.join("manifest.json"), manifest_fixture())?;
+
+    run_failure(&["rebuild", &project_arg, "R8AJ01"])?;
+    assert!(!project.join("dist/R8AJ01.iso").exists());
+    Ok(())
+}
+
 struct TestWorkspace(PathBuf);
 
 impl Drop for TestWorkspace {

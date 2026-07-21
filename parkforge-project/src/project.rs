@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use crate::config::ProjectConfig;
 use crate::error::{Error, Result};
-use crate::layout::{BuildDir, OriginalDir, SourceDir};
+use crate::layout::{BuildDir, DistDir, OriginalDir, SourceDir};
 use parkforge_model::{GameId, VirtualPath};
 
 const PROJECT_CONFIG_FILE_NAME: &str = "project.toml";
@@ -12,6 +12,7 @@ const GITIGNORE_FILE_NAME: &str = ".gitignore";
 const ORIGINAL_DIR_NAME: &str = "original";
 const SOURCE_DIR_NAME: &str = "src";
 const BUILD_DIR_NAME: &str = "build";
+const DIST_DIR_NAME: &str = "dist";
 
 const DEFAULT_GITIGNORE: &str = "/original/\n/build/\n/dist/\n*.fsb\n*.rlb\n";
 
@@ -39,7 +40,12 @@ impl Project {
             path: root.to_path_buf(),
             source,
         })?;
-        for dir_name in [ORIGINAL_DIR_NAME, SOURCE_DIR_NAME, BUILD_DIR_NAME] {
+        for dir_name in [
+            ORIGINAL_DIR_NAME,
+            SOURCE_DIR_NAME,
+            BUILD_DIR_NAME,
+            DIST_DIR_NAME,
+        ] {
             let dir = root.join(dir_name);
             fs::create_dir_all(&dir).map_err(|source| Error::Io { path: dir, source })?;
         }
@@ -184,6 +190,18 @@ impl Project {
         Ok(original)
     }
 
+    pub fn require_build(&self, game_id: &GameId) -> Result<BuildDir> {
+        self.require_registered_game(game_id)?;
+        let build = self.build(game_id);
+        if !build.root().is_dir() {
+            return Err(Error::MissingBuildDirectory {
+                game_id: game_id.clone(),
+                path: build.root().to_path_buf(),
+            });
+        }
+        Ok(build)
+    }
+
     #[must_use]
     pub fn original_root(&self) -> PathBuf {
         self.root.join(ORIGINAL_DIR_NAME)
@@ -202,6 +220,11 @@ impl Project {
     #[must_use]
     pub fn build(&self, game_id: &GameId) -> BuildDir {
         BuildDir::new(self.root.join(BUILD_DIR_NAME).join(game_id.as_str()))
+    }
+
+    #[must_use]
+    pub fn dist(&self, game_id: &GameId) -> DistDir {
+        DistDir::new(self.root.join(DIST_DIR_NAME).join(game_id.as_str()))
     }
 
     #[must_use]
@@ -278,6 +301,7 @@ mod tests {
         assert!(root.join("original").is_dir());
         assert!(root.join("src").is_dir());
         assert!(root.join("build").is_dir());
+        assert!(root.join("dist").is_dir());
         Project::open(&root)?;
         fs::remove_dir_all(root)?;
         Ok(())

@@ -43,6 +43,10 @@ enum Command {
         path: PathBuf,
         game_id: String,
     },
+    Rebuild {
+        path: PathBuf,
+        game_id: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -95,6 +99,7 @@ fn run(command: Command) -> Result<(), CliError> {
         Command::Extract { path, iso, game_id } => run_extract(&path, &iso, game_id),
         Command::Overlay(command) => run_overlay(command),
         Command::Build { path, game_id } => run_build(&path, game_id),
+        Command::Rebuild { path, game_id } => run_rebuild(&path, game_id),
     }
 }
 
@@ -220,5 +225,25 @@ fn run_build(path: &Path, game_id: String) -> Result<(), CliError> {
         config: project.build_config(),
     })?;
     println!("built game ID {game_id} into {}", build.root().display());
+    Ok(())
+}
+
+fn run_rebuild(path: &Path, game_id: String) -> Result<(), CliError> {
+    let project = Project::open(path)?;
+    let game_id = GameId::new(game_id)?;
+    let original = project.require_original(&game_id)?;
+    let build = project.require_build(&game_id)?;
+    let manifest = parkforge_extractor::Manifest::load(&original.manifest_path())?;
+    if manifest.game_id != game_id {
+        return Err(CliError::ManifestGameIdMismatch {
+            expected: game_id,
+            found: manifest.game_id,
+        });
+    }
+    let output = project.dist(&game_id).iso_path();
+    parkforge_extractor::rebuild(build.root(), &manifest, &output, |progress| {
+        println!("progress: {progress}%");
+    })?;
+    println!("rebuilt game ID {game_id} into {}", output.display());
     Ok(())
 }

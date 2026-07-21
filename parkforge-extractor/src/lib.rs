@@ -7,10 +7,10 @@ mod wii_iso_extractor;
 pub use error::{Error, Result};
 pub use manifest::Manifest;
 
-use crate::container::extract_archives;
-use crate::wii_iso_extractor::WiiIsoExtractor;
+use crate::container::{extract_archives, repack_archives};
+use crate::wii_iso_extractor::{WiiIsoExtractor, rebuild_from_directory};
 use parkforge_model::{GameId, MANIFEST_FILE_NAME, StagingDirectory};
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::Read;
 use std::path::Path;
 
@@ -62,8 +62,67 @@ pub fn extract(iso_path: &Path, workspace_root: &Path) -> Result<Manifest> {
     Ok(manifest)
 }
 
+pub fn rebuild<F>(
+    build_root: &Path,
+    manifest: &Manifest,
+    destination: &Path,
+    progress: F,
+) -> Result<()>
+where
+    F: FnMut(u32),
+{
+    let parent = build_root.parent().ok_or_else(|| Error::Rebuild {
+        path: build_root.to_path_buf(),
+        message: "build path has no parent directory".to_owned(),
+    })?;
+    let staging = StagingDirectory::create(parent, &format!("{}.rebuilding", manifest.game_id))
+        .map_err(|source| Error::Io {
+            path: parent.to_path_buf(),
+            source,
+        })?;
+    copy_tree(build_root, staging.path())?;
+    repack_archives(staging.path(), manifest)?;
+    rebuild_from_directory(staging.path(), destination, progress)
+}
+
 fn extract_iso_into(iso_path: &Path, output_dir: &Path) -> Result<()> {
     let mut extractor = WiiIsoExtractor::new(iso_path)?;
     extractor.prepare_extract_section(DATA_PARTITION.to_owned())?;
     extractor.extract_to(output_dir, |progress| println!("progress: {progress}%"))
+}
+
+fn copy_tree(source: &Path, destination: &Path) -> Result<()> {
+    fs::create_dir_all(destination).map_err(|source_error| Error::Io {
+        path: destination.to_path_buf(),
+        source: source_error,
+    })?;
+    for entry in fs::read_dir(source).map_err(|source_error| Error::Io {
+        path: source.to_path_buf(),
+        source: source_error,
+    })? {
+        let entry = entry.map_err(|source_error| Error::Io {
+            path: source.to_path_buf(),
+            source: source_error,
+        })?;
+        let path = entry.path();
+        let output = destination.join(entry.file_name());
+        let file_type = entry.file_type().map_err(|source_error| Error::Io {
+            path: path.clone(),
+            source: source_error,
+        })?;
+        if file_type.is_dir() {
+            copy_tree(&path, &output)?;
+        } else if file_type.is_file() {
+            fs::copy(&path, &output).map_err(|source_error| Error::Io {
+                path: output,
+                source: source_error,
+            })?;
+        } else {
+            return Err(Error::Rebuild {
+                path,
+                message: "build tree must contain only regular files and directories".to_owned(),
+            });
+        }
+    }
+    Ok(())
 }

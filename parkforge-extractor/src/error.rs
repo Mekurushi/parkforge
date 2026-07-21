@@ -76,4 +76,11 @@ pub enum Error {
     UnsupportedHashAlgorithm { algorithm: String },
     #[error("value is too large to represent in the manifest")]
     ManifestSizeOverflow,
+    #[error("failed to rebuild ISO from {path:?}: {message}")]
+    Rebuild { path: PathBuf, message: String },
+    #[error("archive {archive:?} contains unsupported empty directory {directory:?}")]
+    EmptyArchiveDirectory {
+        archive: PathBuf,
+        directory: PathBuf,
+    },
 }

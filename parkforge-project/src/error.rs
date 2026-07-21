@@ -37,6 +37,8 @@ pub enum Error {
     UnregisteredGameDirectory { game_id: GameId, path: PathBuf },
     #[error("game ID {game_id} has no extracted original directory at {path:?}")]
     MissingOriginalDirectory { game_id: GameId, path: PathBuf },
+    #[error("game ID {game_id} has no build directory at {path:?}")]
+    MissingBuildDirectory { game_id: GameId, path: PathBuf },
     #[error("path {path:?} contains non-UTF-8 components")]
     InvalidUtf8Path { path: PathBuf },
 }

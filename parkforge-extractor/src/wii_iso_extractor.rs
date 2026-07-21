@@ -1,12 +1,13 @@
 use crate::error::{Error, Result};
 use binrw::{BinWrite, BinWriterExt};
+use disc_riider::builder::build_from_directory;
 use disc_riider::structs::WiiPartType;
 use disc_riider::{Fst, FstNode, WiiIsoReader, WiiPartitionReadInfo};
 use std::fs;
-use std::fs::create_dir_all;
+use std::fs::{OpenOptions, create_dir_all};
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::path::Path;
-
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 // copied directly from disc_riider; kept exactly the same for now, maybe changing some stuff soon
 
 struct Section {
@@ -14,6 +15,8 @@ struct Section {
     fst: Fst,
     partition_reader: WiiPartitionReadInfo,
 }
+
+static NEXT_REBUILD_FILE: AtomicUsize = AtomicUsize::new(0);
 
 pub struct WiiIsoExtractor {
     iso: WiiIsoReader<fs::File>,
@@ -199,4 +202,57 @@ impl WiiIsoExtractor {
         }
         Ok(())
     }
+}
+pub fn rebuild_from_directory<F>(src_dir: &Path, dest_path: &Path, mut progress: F) -> Result<()>
+where
+    F: FnMut(u32),
+{
+    let parent = dest_path.parent().ok_or_else(|| Error::Rebuild {
+        path: dest_path.to_path_buf(),
+        message: "destination ISO path has no parent directory".to_owned(),
+    })?;
+    fs::create_dir_all(parent).map_err(|source| Error::Io {
+        path: parent.to_path_buf(),
+        source,
+    })?;
+    let temporary = temporary_output_path(dest_path);
+    let mut dest_file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|source| Error::Io {
+            path: temporary.clone(),
+            source,
+        })?;
+    if let Err(error) = build_from_directory(src_dir, &mut dest_file, &mut |done_percent| {
+        progress(u32::from(done_percent));
+    }) {
+        let _ = fs::remove_file(&temporary);
+        return Err(Error::Rebuild {
+            path: src_dir.to_path_buf(),
+            message: error.to_string(),
+        });
+    }
+    drop(dest_file);
+    fs::rename(&temporary, dest_path).map_err(|source| {
+        let _ = fs::remove_file(&temporary);
+        Error::Io {
+            path: dest_path.to_path_buf(),
+            source,
+        }
+    })?;
+    Ok(())
+}
+
+fn temporary_output_path(destination: &Path) -> PathBuf {
+    let name = destination
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("output.iso");
+    destination.with_file_name(format!(
+        ".{name}.rebuilding-{}-{}",
+        std::process::id(),
+        NEXT_REBUILD_FILE.fetch_add(1, Ordering::Relaxed)
+    ))
 }

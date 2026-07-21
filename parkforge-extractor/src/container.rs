@@ -2,7 +2,7 @@ use std::collections::{HashSet, VecDeque};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-use nlzss11::decompress;
+use nlzss11::{compress, decompress};
 use u8arc::U8Arc;
 use walkdir_minimal::WalkDir;
 
@@ -66,6 +66,107 @@ pub fn extract_archives(workspace_root: &Path, game_id: GameId) -> Result<Manife
     add_loose_files(workspace_root, &mut manifest)?;
 
     Ok(manifest)
+}
+
+pub fn repack_archives(workspace_root: &Path, manifest: &Manifest) -> Result<()> {
+    let mut containers: Vec<_> = manifest
+        .containers()
+        .map(|(_, container)| container)
+        .collect();
+    containers.sort_by_key(|container| {
+        std::cmp::Reverse(container.virtual_path.as_str().matches('/').count())
+    });
+
+    for container in containers {
+        let path = container.virtual_path.to_path_under(workspace_root);
+        if !path.is_dir() {
+            return Err(Error::Rebuild {
+                path,
+                message: "archive container is not an extracted directory".to_owned(),
+            });
+        }
+        let archive = match container.format {
+            ContainerFormat::U8 => pack_directory(&path, &path)?,
+        };
+        let packed = match container.compression {
+            CompressionFormat::None => archive,
+            CompressionFormat::Nlzss11 => compress(&archive),
+        };
+        fs::remove_dir_all(&path).map_err(|source| Error::Io {
+            path: path.clone(),
+            source,
+        })?;
+        fs::write(&path, packed).map_err(|source| Error::Io { path, source })?;
+    }
+    Ok(())
+}
+
+fn pack_directory(directory: &Path, archive_path: &Path) -> Result<Vec<u8>> {
+    let mut archive = U8Arc::new();
+    add_directory_entries(&mut archive, directory, directory, archive_path)?;
+    archive.write_to_vec().map_err(|error| Error::Archive {
+        path: archive_path.to_path_buf(),
+        message: error.to_string(),
+    })
+}
+
+fn add_directory_entries(
+    archive: &mut U8Arc<'static>,
+    root: &Path,
+    directory: &Path,
+    archive_path: &Path,
+) -> Result<()> {
+    let mut entries: Vec<_> = fs::read_dir(directory)
+        .map_err(|source| Error::Io {
+            path: directory.to_path_buf(),
+            source,
+        })?
+        .collect::<std::result::Result<_, _>>()
+        .map_err(|source| Error::Io {
+            path: directory.to_path_buf(),
+            source,
+        })?;
+    entries.sort_by_key(std::fs::DirEntry::file_name);
+    if entries.is_empty() {
+        return Err(Error::EmptyArchiveDirectory {
+            archive: archive_path.to_path_buf(),
+            directory: directory.to_path_buf(),
+        });
+    }
+
+    for entry in entries {
+        let path = entry.path();
+        let file_type = entry.file_type().map_err(|source| Error::Io {
+            path: path.clone(),
+            source,
+        })?;
+        if file_type.is_dir() {
+            add_directory_entries(archive, root, &path, archive_path)?;
+        } else if file_type.is_file() {
+            let relative = path
+                .strip_prefix(root)
+                .map_err(|_error| Error::OutsideWorkspace {
+                    path: path.clone(),
+                    root: root.to_path_buf(),
+                })?;
+            let name = relative
+                .to_str()
+                .ok_or_else(|| Error::InvalidUtf8Path { path: path.clone() })?
+                .replace(std::path::MAIN_SEPARATOR, "/");
+            let data = fs::read(&path).map_err(|source| Error::Io {
+                path: path.clone(),
+                source,
+            })?;
+            archive.add_entry_data(&name, data);
+        } else {
+            return Err(Error::Rebuild {
+                path,
+                message: "archive contents must contain only regular files and directories"
+                    .to_owned(),
+            });
+        }
+    }
+    Ok(())
 }
 
 fn extract_container(
@@ -324,4 +425,87 @@ fn walk_files(dir: &Path) -> Result<Vec<PathBuf>> {
 
     files.sort();
     Ok(files)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use nlzss11::decompress;
+    use u8arc::U8Arc;
+
+    use super::repack_archives;
+    use crate::manifest::{CompressionFormat, ContainerFormat, Manifest, NewContainer};
+
+    static NEXT_TEST_DIRECTORY: AtomicUsize = AtomicUsize::new(0);
+
+    fn test_directory() -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "parkforge-container-test-{}-{}",
+            std::process::id(),
+            NEXT_TEST_DIRECTORY.fetch_add(1, Ordering::Relaxed)
+        ))
+    }
+
+    #[test]
+    fn repack_archives_packs_nested_containers_before_their_parents()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = test_directory();
+        let outer_path = root.join("DATA/files/outer.dan");
+        let nested_path = outer_path.join("nested.dac");
+        fs::create_dir_all(&nested_path)?;
+        fs::write(outer_path.join("top.bin"), b"top")?;
+        fs::write(nested_path.join("inner.bin"), b"inner")?;
+
+        let mut manifest = Manifest::new("R8AJ01".parse()?);
+        let outer = manifest.add_container(NewContainer {
+            virtual_path: "DATA/files/outer.dan".parse()?,
+            format: ContainerFormat::U8,
+            compression: CompressionFormat::None,
+            parent: None,
+            internal_path: None,
+        })?;
+        manifest.add_container(NewContainer {
+            virtual_path: "DATA/files/outer.dan/nested.dac".parse()?,
+            format: ContainerFormat::U8,
+            compression: CompressionFormat::Nlzss11,
+            parent: Some(outer),
+            internal_path: Some("nested.dac".to_owned()),
+        })?;
+
+        repack_archives(&root, &manifest)?;
+
+        assert!(outer_path.is_file());
+        let outer = U8Arc::read_vec(fs::read(&outer_path)?)?;
+        assert_eq!(outer.get_entry_data("top.bin"), Some(&b"top"[..]));
+        let nested = decompress(outer.get_entry_data("nested.dac").ok_or("missing nested")?)?;
+        let nested = U8Arc::read_vec(nested)?;
+        assert_eq!(nested.get_entry_data("inner.bin"), Some(&b"inner"[..]));
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn repack_archives_rejects_empty_directories() -> Result<(), Box<dyn std::error::Error>> {
+        let root = test_directory();
+        let archive_path = root.join("DATA/files/empty.dan");
+        fs::create_dir_all(&archive_path)?;
+        let mut manifest = Manifest::new("R8AJ01".parse()?);
+        manifest.add_container(NewContainer {
+            virtual_path: "DATA/files/empty.dan".parse()?,
+            format: ContainerFormat::U8,
+            compression: CompressionFormat::None,
+            parent: None,
+            internal_path: None,
+        })?;
+
+        assert!(repack_archives(&root, &manifest).is_err());
+        assert!(archive_path.is_dir());
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
 }

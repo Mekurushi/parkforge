@@ -1,0 +1,13 @@
+[project]
+name = "PokePark Wii demo mod"
+version = "0.1.0"
+
+[[game]]
+game_id = "R8AJ01"
+label = "PokePark Wii (Japan)"
+
+[[build.rule]]
+name = "fsc"
+source = "**/*.fsc"
+compiler = "fsc"
+output_extension = "fsb"

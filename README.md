@@ -4,6 +4,7 @@ Parkforge is a toolchain for creating and distributing mods for PokePark Wii.
 It is dedicated to PokePark Wii, but kept as generic as possible so it may be
 reusable for other games later.
 
+> Note: Parkforge is currently a proof of concept for validating core ideas and is not yet a final solution.  
 ## Idea
 
 Parkforge is planned as a multi-stage toolchain:
@@ -32,6 +33,8 @@ Parkforge is planned as a multi-stage toolchain:
   structure.
 - Build a complete logical `build/<game-id>/` tree from `original/` plus
   rule-configured `src/` transformations and raw asset copies.
+- Repack supported extracted archives (`.dan` U8 and `.dac` U8/NLZSS11) and
+  rebuild the DATA partition into `dist/<game-id>.iso`.
 
 The current project layout is:
 
@@ -40,6 +43,7 @@ project.toml         # project configuration
 original/<game-id>/  # extracted, immutable game baseline; ignored by Git
 src/<game-id>/       # source input, for example fsc scripts
 build/<game-id>/     # complete generated logical game tree; ignored by Git
+dist/<game-id>.iso   # rebuilt DATA-partition ISO; ignored by Git
 ```
 
 ## TODOs
@@ -54,8 +58,6 @@ build/<game-id>/     # complete generated logical game tree; ignored by Git
    the build tree.
 5. Design the delete-marker format.
 6. Add `dist/<game-id>/` and create the custom orchestrating patch file.
-7. Add patched-ISO output as a convenience target built from the verified
-   original baseline and the same change plan used for patch bundles.
 
 ## Rules
 

@@ -33,6 +33,11 @@ pub struct BuildDir {
     root: PathBuf,
 }
 
+#[derive(Debug, Clone)]
+pub struct DistDir {
+    root: PathBuf,
+}
+
 impl BuildDir {
     pub(crate) fn new(root: PathBuf) -> Self {
         Self { root }
@@ -41,6 +46,22 @@ impl BuildDir {
     #[must_use]
     pub fn root(&self) -> &Path {
         &self.root
+    }
+}
+
+impl DistDir {
+    pub(crate) fn new(root: PathBuf) -> Self {
+        Self { root }
+    }
+
+    #[must_use]
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    #[must_use]
+    pub fn iso_path(&self) -> PathBuf {
+        self.root.with_extension("iso")
     }
 }
 
