@@ -1,63 +1,63 @@
 # Parkforge
 
-Parkforge is a toolchain for creating and distributing mods for PokePark Wii.
-It is dedicated to PokePark Wii, but kept as generic as possible so it may be
-reusable for other games later.
+Parkforge is an opinionated source-to-distribution toolchain for PokéPark Wii
+mods. It provides built-in support for relevant game formats and compilers.
 
-> Note: Parkforge is currently a proof of concept for validating core ideas and is not yet a final solution.  
-## Idea
-
-Parkforge is planned as a multi-stage toolchain:
-
-1. Set up a workspace project with its folder structure and configuration.
-2. Extract the ISO as an immutable baseline.
-3. Compile source files for example, `fsc` scripts into `fsb` game binaries.
-   `rlb` support is currently only in the design phase.
-4. Materialize a complete logical build tree from the source input and original
-   baseline. Existing files become per-file patch payloads (`xdelta`?), deleted
-   files are represented by delete markers in `src`, and new files are those
-   not present in the original manifest.
-5. Bundle the per-file patches into a custom orchestrating patch file with
-   metadata.
-6. (optionally) Create a patched ISO directly from the build output.
+> Note: Parkforge is currently a proof of concept for validating core ideas and is not yet in any form a stable implementation
 
 ## Currently implemented
 
-- Create and validate a project.
-- Register supported game IDs. A project can contain multiple game IDs, mostly
-  to support multiple regions of a game.
-- Extract the DATA partition of an ISO into `original/<game-id>/`.
-- Extract supported archives and record all extracted files and archive content
-  in `manifest.json`.
-- Create an empty `src/<game-id>/` overlay with the manifest's directory
-  structure.
-- Build a complete logical `build/<game-id>/` tree from `original/` plus
-  rule-configured `src/` transformations and raw asset copies.
-- Repack supported extracted archives (`.dan` U8 and `.dac` U8/NLZSS11) and
-  rebuild the DATA partition into `dist/<game-id>.iso`.
+- Creating and validating Parkforge projects.
+- Registering multiple game IDs, primarily for different game revisions and
+  regions.
+- Detecting the game ID of an ISO and extracting its DATA partition into the
+  immutable `original/<game-id>/` baseline.
+- Extracting nested `.dan` archives as uncompressed U8 archives and `.dac`
+  archives as NLZSS11-compressed U8 archives.
+- Recording archive relationships, virtual paths, compression, and original
+  file hashes in `manifest.json`.
+- Creating an empty `src/<game-id>/` tree from the extracted manifest's
+  directory structure.
+- Atomically building a complete logical `build/<game-id>/` tree from the
+  original baseline and rule-configured project sources.
+- Copying raw source files through an explicit `copy` build rule.
+- Compiling `.fsc` sources into `.fsb` scripts with the integrated FSC compiler.
+- Detecting unmatched sources, ambiguous rules, and multiple sources that
+  produce the same build target.
+- Repacking nested archives and rebuilding the DATA partition as
+  `dist/<game-id>.iso`.
 
-The current project layout is:
+## Current project layout
+
+The proof of concept currently uses this layout:
 
 ```text
-project.toml         # project configuration
-original/<game-id>/  # extracted, immutable game baseline; ignored by Git
-src/<game-id>/       # source input, for example fsc scripts
-build/<game-id>/     # complete generated logical game tree; ignored by Git
-dist/<game-id>.iso   # rebuilt DATA-partition ISO; ignored by Git
+project.toml                     # Project and game configuration
+original/<game-id>/              # Extracted immutable game baseline
+src/<game-id>/                   # FSC and raw source inputs
+build/<game-id>/                 # Complete generated logical game tree
+dist/<game-id>.iso               # Rebuilt development ISO
 ```
 
 ## TODOs
 
-1. Design the custom orchestrating patch file and its edit, add, and delete
-   operations.
-2. Build changed loose files from `build/` into patch payloads (`xdelta`?).
-3. Support changes inside nested archives through the custom patch file. Also
-   support grouping by archive so all files in an archive can be patched at
-   once.
-4. Integrate compilers, beginning with FSC, to transform files from `src/` into
-   the build tree.
-5. Design the delete-marker format.
-6. Add `dist/<game-id>/` and create the custom orchestrating patch file.
+- Resolving `src/shared/` together with the selected `src/<game-id>/` overlay.
+- Integrating DOL patching functionality from the Archipelago patcher.
+- Integrating RLB editing functionality.
+- Defining the `.pfmod` patchfile and its metadata.
+- Defining delete markers in src.
+- Defining added-file, edited-file, and deleted-file package operations.
+- Creating one self-contained `.pfmod` package per supported game revision.
+- Applying a `.pfmod` without access to project sources or developer toolchains.
+- Verifying that applying a generated package reproduces the source build
+  exactly.
+- Optional `.fsa` patching for fsb scripts.
+- Additional game-format integrations.
+
+## Design and example
+
+- [Project design](docs/DESIGN.md)
+- [PokéPark Wii demo project](examples/pokepark-wii-demo/README.md)
 
 ## Rules
 
