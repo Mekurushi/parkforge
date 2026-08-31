@@ -1,0 +1,4 @@
+base_address = 0x50000
+
+[functions]
+ACTIVATE = 0x50080

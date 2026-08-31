@@ -1,0 +1,17 @@
+// A complete source file is used only for a new script that does not exist in
+// the original game. Existing scripts are modified through `.fsb.patch/`.
+
+static void ACTIVATE(int object)
+{
+  return;
+}
+
+static void DEACTIVATE(int object)
+{
+  return;
+}
+
+static void RUN(int object)
+{
+  return;
+}

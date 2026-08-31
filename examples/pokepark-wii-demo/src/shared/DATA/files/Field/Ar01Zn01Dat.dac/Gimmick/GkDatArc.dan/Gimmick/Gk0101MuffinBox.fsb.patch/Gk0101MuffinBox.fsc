@@ -1,0 +1,9 @@
+// Replaces ACTIVATE in the existing Gk0101MuffinBox.fsb. During the build,
+// this shared patch source is merged with the matching revision-specific patch
+// directory. This allows that each revision supplies its own symbols.toml while reusing the
+// same patch logic.
+static void ACTIVATE(int object)
+{
+  1+1;
+  return;
+}

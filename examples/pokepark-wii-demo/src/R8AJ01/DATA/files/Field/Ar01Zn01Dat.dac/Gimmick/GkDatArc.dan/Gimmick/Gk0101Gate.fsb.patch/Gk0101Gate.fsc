@@ -1,0 +1,8 @@
+// Replaces the existing ACTIVATE function in Gk0101Gate.fsb.
+// symbols.toml provides the original script's base address and the address of
+// each function being replaced.
+static void ACTIVATE(int object)
+{
+  1+1;
+  return;
+}

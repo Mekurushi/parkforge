@@ -1,5 +1,14 @@
-/original/
-/build/
-/dist/
+/original/**
+!/original/**/
+!/original/**/.gitkeep
+
+/build/**
+!/build/**/
+!/build/**/.gitkeep
+
+/dist/**
+!/dist/**/
+!/dist/**/.gitkeep
+
 *.fsb
 *.rlb
