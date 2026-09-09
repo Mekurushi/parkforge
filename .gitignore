@@ -1,0 +1,8 @@
+/target/
+/.parkforge-test/
+/.idea/
+.DS_Store
+Thumbs.db
+*.iso
+*.wbfs
+*.rvz

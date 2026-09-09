@@ -1,0 +1,14 @@
+[package]
+name = "parkforge-wii-disc"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+binrw = "0.14.2"
+disc_riider = "0.2.2"
+parkforge-types = { path = "../parkforge-types" }
+tempfile = "3.27.0"
+thiserror.workspace = true
+
+[lints]
+workspace = true

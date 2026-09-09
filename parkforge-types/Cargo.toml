@@ -1,0 +1,12 @@
+[package]
+name = "parkforge-types"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+relative-path = "2.0.1"
+serde.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true
