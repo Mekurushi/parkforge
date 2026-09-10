@@ -7,7 +7,7 @@ edition.workspace = true
 binrw = "0.14.2"
 disc_riider = "0.2.2"
 parkforge-types = { path = "../parkforge-types" }
-tempfile = "3.27.0"
+tempfile.workspace = true
 thiserror.workspace = true
 
 [lints]

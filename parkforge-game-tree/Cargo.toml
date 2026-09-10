@@ -1,0 +1,15 @@
+[package]
+name = "parkforge-game-tree"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+parkforge-wii-disc = { path = "../parkforge-wii-disc" }
+walkdir = "2.5.0"
+u8arc = "1.0.0"
+nlzss11 = "1.0.1"
+tempfile.workspace = true
+
+[lints]
+workspace = true
