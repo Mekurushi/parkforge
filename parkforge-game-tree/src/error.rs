@@ -30,6 +30,23 @@ pub enum Error {
     #[error("U8 archive data for {path:?} is outside the archive")]
     InvalidArchiveData { path: PathBuf },
 
+    #[error("invalid archive entry path: {0:?}")]
+    InvalidArchiveEntryPath(PathBuf),
+
+    #[error("failed to read archive entry {path:?}: {source}")]
+    ReadArchiveEntry {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to pack U8 archive from {path:?}: {source}")]
+    PackU8 {
+        path: PathBuf,
+        #[source]
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
+
     #[error("failed to create archive directory {path:?}: {source}")]
     CreateArchiveDirectory {
         path: PathBuf,
@@ -71,6 +88,34 @@ pub enum Error {
     )]
     CommitExtractedArchive {
         temporary_path: PathBuf,
+        destination: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to create a temporary archive file in {directory:?}: {source}")]
+    CreateTemporaryArchiveFile {
+        directory: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to write temporary archive {path:?}: {source}")]
+    WriteTemporaryArchive {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to remove expanded archive directory {path:?}: {source}")]
+    RemoveArchiveDirectory {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to commit repacked archive at {destination:?}: {source}")]
+    CommitRepackedArchive {
         destination: PathBuf,
         #[source]
         source: std::io::Error,
