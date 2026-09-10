@@ -15,7 +15,6 @@ struct PreparedPartition {
     partition_reader: WiiPartitionReadInfo,
 }
 
-
 pub struct WiiIsoExtractor<R: Read + Seek> {
     iso: WiiIsoReader<R>,
     partitions_to_extract: Vec<PreparedPartition>,
@@ -80,7 +79,7 @@ impl<R: Read + Seek> WiiIsoExtractor<R> {
     where
         F: FnMut(Progress),
     {
-        prepare_destination(path)?;
+        validate_destination(path)?;
         let total_bytes = total_file_bytes(&self.partitions_to_extract);
         progress(Progress::new(0, total_bytes));
         let disc_header = self.iso.get_header().clone();
@@ -140,17 +139,11 @@ impl<R: Read + Seek> WiiIsoExtractor<R> {
                                 }
 
                                 outfile.write_all(&buffer[..bytes_read])?;
-                                done_bytes += u64::try_from(bytes_read).map_err(|_error| {
-                                    std::io::Error::new(
-                                        ErrorKind::InvalidData,
-                                        "ISO read size does not fit into progress",
-                                    )
-                                })?;
+                                done_bytes += bytes_read as u64;
                                 bytes_left -= bytes_read;
                                 progress(Progress::new(done_bytes, total_bytes));
                             }
                         }
-
                         Ok(())
                     })
                     .map_err(|source| Error::Io {
@@ -211,16 +204,9 @@ impl WiiIsoExtractor<fs::File> {
     }
 }
 
-
-fn prepare_destination(path: &Path) -> Result<()> {
+fn validate_destination(path: &Path) -> Result<()> {
     let metadata = match fs::symlink_metadata(path) {
         Ok(metadata) => metadata,
-        Err(source) if source.kind() == ErrorKind::NotFound => {
-            return create_dir_all(path).map_err(|source| Error::Io {
-                path: path.to_path_buf(),
-                source,
-            });
-        }
         Err(source) => {
             return Err(Error::Io {
                 path: path.to_path_buf(),
@@ -235,17 +221,5 @@ fn prepare_destination(path: &Path) -> Result<()> {
     if !metadata.is_dir() {
         return Err(Error::DestinationIsNotDirectory(path.to_path_buf()));
     }
-
-    let mut entries = fs::read_dir(path).map_err(|source| Error::Io {
-        path: path.to_path_buf(),
-        source,
-    })?;
-    match entries.next() {
-        Some(Ok(_)) => Err(Error::DestinationIsNotEmpty(path.to_path_buf())),
-        Some(Err(source)) => Err(Error::Io {
-            path: path.to_path_buf(),
-            source,
-        }),
-        None => Ok(()),
-    }
+    Ok(())
 }

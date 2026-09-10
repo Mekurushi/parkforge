@@ -24,9 +24,7 @@ where
         path: source.to_path_buf(),
         source: Box::new(error),
     })?;
-    if completed < TOTAL {
-        progress(Progress::new(TOTAL, TOTAL));
-    }
+    progress(Progress::new(TOTAL, TOTAL));
     destination
         .flush()
         .map_err(|source| Error::FlushIso { source })

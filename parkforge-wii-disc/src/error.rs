@@ -36,9 +36,6 @@ pub enum Error {
     #[error("extraction destination is not a directory: {0:?}")]
     DestinationIsNotDirectory(PathBuf),
 
-    #[error("extraction destination is not empty: {0:?}")]
-    DestinationIsNotEmpty(PathBuf),
-
     #[error("binary write failed at {path:?}: {source}")]
     BinRw {
         path: PathBuf,
