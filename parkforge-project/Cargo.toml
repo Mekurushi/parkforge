@@ -8,6 +8,7 @@ parkforge-types = { path = "../parkforge-types" }
 serde.workspace = true
 thiserror.workspace = true
 toml = "1.1.4"
+walkdir.workspace = true
 
 [lints]
 workspace = true

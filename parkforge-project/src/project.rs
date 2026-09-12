@@ -5,6 +5,7 @@ use std::path::{self, Path, PathBuf};
 
 use parkforge_types::{GameId, MakerCode};
 use serde::{Deserialize, Serialize};
+use walkdir::WalkDir;
 
 use crate::error::{Error, Result};
 
@@ -215,6 +216,37 @@ impl Project {
     pub fn build_for(&self, game_id: &GameId) -> Result<PathBuf> {
         self.ensure_supported(game_id)?;
         Ok(self.build_dir().join(game_id.as_str()))
+    }
+
+    pub fn create_source_overlay(&self, game_id: &GameId) -> Result<()> {
+        let original = self.original_for(game_id)?;
+        if !original.is_dir() {
+            return Err(Error::OriginalNotDirectory(original));
+        }
+        let sources = self.sources_for(game_id)?;
+
+        for entry in WalkDir::new(&original) {
+            let entry = entry.map_err(|source| Error::WalkOriginal {
+                root: original.clone(),
+                source,
+            })?;
+            if !entry.file_type().is_dir() {
+                continue;
+            }
+            let relative = entry.path().strip_prefix(&original).map_err(|source| {
+                Error::RelativeOriginalPath {
+                    path: entry.path().to_path_buf(),
+                    root: original.clone(),
+                    source,
+                }
+            })?;
+            let directory = sources.join(relative);
+            fs::create_dir_all(&directory).map_err(|source| Error::CreateDirectory {
+                path: directory,
+                source,
+            })?;
+        }
+        Ok(())
     }
 
     fn ensure_supported(&self, game_id: &GameId) -> Result<()> {

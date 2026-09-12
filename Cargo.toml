@@ -15,6 +15,7 @@ edition = "2024"
 serde = { version = "1.0.228", features = ["derive"] }
 tempfile = "3.27.0"
 thiserror = "2.0.18"
+walkdir = "2.5.0"
 
 [workspace.lints.rust]
 let_underscore_drop = "deny"

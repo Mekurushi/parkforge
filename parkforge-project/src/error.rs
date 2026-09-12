@@ -5,6 +5,24 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("original tree {0:?} must be an existing directory")]
+    OriginalNotDirectory(PathBuf),
+
+    #[error("failed to walk original tree {root:?}: {source}")]
+    WalkOriginal {
+        root: PathBuf,
+        #[source]
+        source: walkdir::Error,
+    },
+
+    #[error("failed to resolve original directory {path:?} below {root:?}: {source}")]
+    RelativeOriginalPath {
+        path: PathBuf,
+        root: PathBuf,
+        #[source]
+        source: std::path::StripPrefixError,
+    },
+
     #[error("failed to create project gitignore {path:?}: {source}")]
     CreateGitignore {
         path: PathBuf,
