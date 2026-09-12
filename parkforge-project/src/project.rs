@@ -1,9 +1,10 @@
 use std::collections::BTreeMap;
 use std::fs;
+use std::io::{self, Write};
 use std::path::{self, Path, PathBuf};
 
 use parkforge_types::{GameId, MakerCode};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, Result};
 
@@ -15,24 +16,50 @@ const SOURCES_DIR_NAME: &str = "src";
 const SHARED_SOURCES_DIR_NAME: &str = "shared";
 const BUILD_DIR_NAME: &str = "build";
 const DIST_DIR_NAME: &str = "dist";
+const GITIGNORE_FILE_NAME: &str = ".gitignore";
+const INITIAL_GITIGNORE: &str = "/original/\n/build/\n/dist/\n";
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectConfig {
     pub project: ProjectMetadata,
     pub games: BTreeMap<GameId, GameRevision>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-pub struct ProjectMetadata {
-    pub name: String,          // name of the mod, probably later used for banner title
-    pub maker_code: MakerCode, // target maker code the patched build should have
+impl ProjectConfig {
+    pub fn new(name: impl Into<String>, game_id: Option<GameId>) -> Self {
+        let mut games = BTreeMap::new();
+        if let Some(game_id) = game_id {
+            // the right now created map can't contain the game_id already so we're saving the
+            // error handling
+            drop(games.insert(game_id, GameRevision { display_name: None }));
+        }
+
+        Self {
+            project: ProjectMetadata {
+                name: name.into(),
+                version: None,
+                maker_code: None,
+            },
+            games,
+        }
+    }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+pub struct ProjectMetadata {
+    pub name: String, // name of the mod, probably later used for banner title
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>, // free string field for now, planned to be used for banner title
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub maker_code: Option<MakerCode>, // target maker code the patched build should have
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct GameRevision {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>, // just for easy identification and placeholder for
                                       // revision specific metadata
 }
@@ -44,6 +71,79 @@ pub struct Project {
 }
 
 impl Project {
+    pub fn init(
+        root: impl Into<PathBuf>,
+        name: impl Into<String>,
+        game_id: Option<GameId>,
+    ) -> Result<Self> {
+        let root = root.into();
+        if !root.is_dir() {
+            return Err(Error::RootNotDirectory(root));
+        }
+        let root =
+            path::absolute(&root).map_err(|source| Error::ResolveRoot { path: root, source })?;
+        let project = Self {
+            root,
+            config: ProjectConfig::new(name, game_id),
+        };
+        let config_path = project.config_path();
+        let contents =
+            toml::to_string(&project.config).map_err(|source| Error::SerializeConfig {
+                path: config_path.clone(),
+                source,
+            })?;
+        let mut config_file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&config_path)
+            .map_err(|source| Error::CreateConfig {
+                path: config_path.clone(),
+                source,
+            })?;
+        config_file
+            .write_all(contents.as_bytes())
+            .map_err(|source| Error::WriteConfig {
+                path: config_path,
+                source,
+            })?;
+
+        for directory in [
+            project.original_dir(),
+            project.shared_sources(),
+            project.build_dir(),
+            project.dist_dir(),
+        ] {
+            fs::create_dir_all(&directory).map_err(|source| Error::CreateDirectory {
+                path: directory,
+                source,
+            })?;
+        }
+        for game_id in project.config.games.keys() {
+            let directory = project.sources_for(game_id)?;
+            fs::create_dir_all(&directory).map_err(|source| Error::CreateDirectory {
+                path: directory,
+                source,
+            })?;
+        }
+        project.create_gitignore()?;
+        Ok(project)
+    }
+
+    fn create_gitignore(&self) -> Result<()> {
+        let path = self.root.join(GITIGNORE_FILE_NAME);
+        let mut file = match fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+        {
+            Ok(file) => file,
+            Err(source) if source.kind() == io::ErrorKind::AlreadyExists => return Ok(()),
+            Err(source) => return Err(Error::CreateGitignore { path, source }),
+        };
+        file.write_all(INITIAL_GITIGNORE.as_bytes())
+            .map_err(|source| Error::WriteGitignore { path, source })
+    }
+
     pub fn open(root: impl Into<PathBuf>) -> Result<Self> {
         let root = root.into();
         // normalizing into absolute path to make handling throughout all crates easier

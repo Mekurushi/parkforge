@@ -5,6 +5,51 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("failed to create project gitignore {path:?}: {source}")]
+    CreateGitignore {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to write project gitignore {path:?}: {source}")]
+    WriteGitignore {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("project root {0:?} must be an existing directory")]
+    RootNotDirectory(PathBuf),
+
+    #[error("failed to serialize project configuration {path:?}: {source}")]
+    SerializeConfig {
+        path: PathBuf,
+        #[source]
+        source: toml::ser::Error,
+    },
+
+    #[error("failed to create project configuration {path:?}: {source}")]
+    CreateConfig {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to write project configuration {path:?}: {source}")]
+    WriteConfig {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to create project directory {path:?}: {source}")]
+    CreateDirectory {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
     #[error("game ID {0} is not supported by this project")]
     UnsupportedGameId(GameId),
 
