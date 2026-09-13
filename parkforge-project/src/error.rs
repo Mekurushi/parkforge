@@ -5,6 +5,58 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("merge destination {0:?} must be an existing directory")]
+    MergeDestinationNotDirectory(PathBuf),
+
+    #[error("merge destination {0:?} must be empty")]
+    MergeDestinationNotEmpty(PathBuf),
+
+    #[error("failed to inspect merge destination {path:?}: {source}")]
+    InspectMergeDestination {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to copy source {path:?} to {destination:?}: {source}")]
+    CopySource {
+        path: PathBuf,
+        destination: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("conflicting sources for logical path {0:?}")]
+    SourceConflict(PathBuf),
+
+    #[error("source root {0:?} must be a directory when present")]
+    SourceNotDirectory(PathBuf),
+
+    #[error("source symbolic links are not supported: {0:?}")]
+    SourceSymlink(PathBuf),
+
+    #[error("failed to inspect source {path:?}: {source}")]
+    InspectSource {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to walk source root {root:?}: {source}")]
+    WalkSources {
+        root: PathBuf,
+        #[source]
+        source: walkdir::Error,
+    },
+
+    #[error("failed to resolve source {path:?} below {root:?}: {source}")]
+    RelativeSourcePath {
+        path: PathBuf,
+        root: PathBuf,
+        #[source]
+        source: std::path::StripPrefixError,
+    },
+
     #[error("original tree {0:?} must be an existing directory")]
     OriginalNotDirectory(PathBuf),
 

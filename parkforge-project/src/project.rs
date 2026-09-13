@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
 use crate::error::{Error, Result};
+use crate::overlay;
 
 // going with hardcoded project structures for simplicity and because there is no real need to make
 // this customizable
@@ -247,6 +248,11 @@ impl Project {
             })?;
         }
         Ok(())
+    }
+
+    pub fn merge_sources(&self, game_id: &GameId, destination: &Path) -> Result<()> {
+        let revision = self.sources_for(game_id)?;
+        overlay::merge_sources(&self.shared_sources(), &revision, destination)
     }
 
     fn ensure_supported(&self, game_id: &GameId) -> Result<()> {
