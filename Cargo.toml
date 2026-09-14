@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "parkforge-cli",
     "parkforge",
     "parkforge-build",
     "parkforge-game-tree",

@@ -1,0 +1,16 @@
+[package]
+name = "parkforge-cli"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+parkforge = { path = "../parkforge" }
+parkforge-types = { path = "../parkforge-types" }
+
+[[bin]]
+name = "parkforge"
+path = "src/main.rs"
+
+[lints]
+workspace = true
