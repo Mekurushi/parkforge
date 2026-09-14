@@ -41,14 +41,11 @@ pub(crate) fn canonical_directory(path: &Path, allow_missing: bool) -> Result<Pa
     }
 }
 
-pub(crate) fn validate_no_overlap(original: &Path, destination: &Path) -> Result<()> {
-    let original = canonical_directory(original, false)?;
+pub(crate) fn validate_no_overlap(input: &Path, destination: &Path) -> Result<()> {
+    let input = canonical_directory(input, false)?;
     let destination = canonical_directory(destination, true)?;
-    if destination.starts_with(&original) || original.starts_with(&destination) {
-        return Err(Error::OverlappingTrees {
-            original,
-            destination,
-        });
+    if destination.starts_with(&input) || input.starts_with(&destination) {
+        return Err(Error::OverlappingTrees { input, destination });
     }
     Ok(())
 }

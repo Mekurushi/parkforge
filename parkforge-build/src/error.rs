@@ -4,6 +4,86 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("sources {first:?} and {second:?} both target {target:?}")]
+    ConflictingTarget {
+        target: PathBuf,
+        first: PathBuf,
+        second: PathBuf,
+    },
+
+    #[error("failed to read FSB {path:?}: {source}")]
+    ReadFsb {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to read symbols {path:?}: {source}")]
+    ReadSymbols {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to parse symbols {path:?}: {source}")]
+    ParseSymbols {
+        path: PathBuf,
+        #[source]
+        source: fsc_patcher::SymbolTableParseError,
+    },
+
+    #[error("failed to apply FSC patch {path:?} to FSB {target:?}: {source}")]
+    PatchFsb {
+        path: PathBuf,
+        target: PathBuf,
+        #[source]
+        source: fsc_patcher::PatchFailure,
+    },
+
+    #[error("FSC source {0:?} must have a valid UTF-8 script name")]
+    InvalidScriptName(PathBuf),
+
+    #[error("failed to read FSC source {path:?}: {source}")]
+    ReadFscSource {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to compile FSC source {path:?}")]
+    CompileFsc {
+        path: PathBuf,
+        failure: fsc_compiler::CompileFailure,
+    },
+
+    #[error("failed to write FSB {path:?}: {source}")]
+    WriteFsb {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to walk source tree {root:?}: {source}")]
+    WalkSources {
+        root: PathBuf,
+        #[source]
+        source: walkdir::Error,
+    },
+
+    #[error("failed to resolve source {path:?} below {root:?}: {source}")]
+    RelativeSourcePath {
+        path: PathBuf,
+        root: PathBuf,
+        #[source]
+        source: std::path::StripPrefixError,
+    },
+
+    #[error("unsupported source format: {0:?}")]
+    UnsupportedSourceFormat(PathBuf),
+
+    #[error("patch directory {path:?} must not be nested inside {outer:?}")]
+    NestedPatchDirectory { path: PathBuf, outer: PathBuf },
+
     #[error("failed to resolve build path {path:?}: {source}")]
     ResolvePath {
         path: PathBuf,
@@ -27,9 +107,9 @@ pub enum Error {
     #[error("build destination {0:?} must name a directory below an existing parent")]
     InvalidDestination(PathBuf),
 
-    #[error("original {original:?} and build destination {destination:?} must not overlap")]
+    #[error("build destination {destination:?} must not overlap input tree {input:?}")]
     OverlappingTrees {
-        original: PathBuf,
+        input: PathBuf,
         destination: PathBuf,
     },
 

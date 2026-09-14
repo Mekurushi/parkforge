@@ -3,6 +3,6 @@
 // each function being replaced.
 static void ACTIVATE(int object)
 {
-  1+1;
+  int i = 1+1;
   return;
 }

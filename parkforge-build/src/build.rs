@@ -1,39 +1,51 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use walkdir::WalkDir;
 
 use crate::error::{Error, Result};
+use crate::operation::Operation;
 use crate::paths::{absolute_directory, validate_no_overlap};
 use crate::staging::Staging;
 
-pub fn build(original: &Path, destination: &Path) -> Result<()> {
-    Build::new(original, destination)?.run()
+pub fn build(original: &Path, sources: &Path, destination: &Path) -> Result<()> {
+    Build::new(original, sources, destination)?.run()
 }
 
 struct Build {
     original: PathBuf,
+    operations: Vec<Operation>,
     staging: Staging,
 }
 
 impl Build {
-    fn new(original: &Path, destination: &Path) -> Result<Self> {
+    fn new(original: &Path, sources: &Path, destination: &Path) -> Result<Self> {
         let original = absolute_directory(original, false)?;
+        let sources = absolute_directory(sources, false)?;
+        let operations = Operation::discover(&sources)?;
+        validate_target_ownership(&operations)?;
         let staging = Staging::new(destination)?;
         validate_no_overlap(&original, staging.destination())?;
+        validate_no_overlap(&sources, staging.destination())?;
 
-        Ok(Self { original, staging })
+        Ok(Self {
+            original,
+            operations,
+            staging,
+        })
     }
 
     fn run(self) -> Result<()> {
         self.copy_tree()?;
-        self.apply_patches()?;
+        self.apply_operations()?;
         self.staging.commit()
     }
 
-    #[allow(clippy::unused_self, clippy::unnecessary_wraps)]
-    fn apply_patches(&self) -> Result<()> {
-        // TODO: compile patches/src files onto original
+    fn apply_operations(&self) -> Result<()> {
+        for operation in &self.operations {
+            operation.process(self.staging.path())?;
+        }
         Ok(())
     }
 
@@ -74,4 +86,18 @@ impl Build {
         }
         Ok(())
     }
+}
+
+fn validate_target_ownership(operations: &[Operation]) -> Result<()> {
+    let mut owners = HashMap::new();
+    for operation in operations {
+        if let Some(first) = owners.insert(operation.target(), operation.source()) {
+            return Err(Error::ConflictingTarget {
+                target: operation.target().to_path_buf(),
+                first: first.to_path_buf(),
+                second: operation.source().to_path_buf(),
+            });
+        }
+    }
+    Ok(())
 }
