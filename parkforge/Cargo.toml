@@ -1,0 +1,14 @@
+[package]
+name = "parkforge"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+parkforge-build = { path = "../parkforge-build" }
+parkforge-project = { path = "../parkforge-project" }
+parkforge-types = { path = "../parkforge-types" }
+tempfile.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true
