@@ -9,8 +9,17 @@ use crate::operation::Operation;
 use crate::paths::{absolute_directory, validate_no_overlap};
 use crate::staging::Staging;
 
-pub fn build(original: &Path, sources: &Path, destination: &Path) -> Result<()> {
-    Build::new(original, sources, destination)?.run()
+pub enum BuildProgress {
+    CopyingOriginal,
+    Operations { completed: usize, total: usize },
+    Committing,
+}
+
+pub fn build<F>(original: &Path, sources: &Path, destination: &Path, mut progress: F) -> Result<()>
+where
+    F: FnMut(BuildProgress),
+{
+    Build::new(original, sources, destination)?.run(&mut progress)
 }
 
 struct Build {
@@ -36,15 +45,26 @@ impl Build {
         })
     }
 
-    fn run(self) -> Result<()> {
+    fn run(self, progress: &mut impl FnMut(BuildProgress)) -> Result<()> {
+        progress(BuildProgress::CopyingOriginal);
         self.copy_tree()?;
-        self.apply_operations()?;
+        self.apply_operations(progress)?;
+        progress(BuildProgress::Committing);
         self.staging.commit()
     }
 
-    fn apply_operations(&self) -> Result<()> {
-        for operation in &self.operations {
+    fn apply_operations(&self, progress: &mut impl FnMut(BuildProgress)) -> Result<()> {
+        let total = self.operations.len();
+        progress(BuildProgress::Operations {
+            completed: 0,
+            total,
+        });
+        for (index, operation) in self.operations.iter().enumerate() {
             operation.process(self.staging.path())?;
+            progress(BuildProgress::Operations {
+                completed: index + 1,
+                total,
+            });
         }
         Ok(())
     }

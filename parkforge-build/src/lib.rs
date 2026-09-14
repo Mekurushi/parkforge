@@ -6,6 +6,5 @@ mod paths;
 mod rules;
 mod staging;
 
-pub use build::build;
+pub use build::{BuildProgress, build};
 pub use error::{Error, Result};
-// TODO: progression system for building

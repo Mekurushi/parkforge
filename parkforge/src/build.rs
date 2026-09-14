@@ -1,12 +1,16 @@
 use std::path::Path;
 
+use parkforge_build::BuildProgress;
 use parkforge_project::Project;
 use parkforge_types::GameId;
 use tempfile::Builder;
 
 use crate::error::{Error, Result};
 
-pub fn build(project_root: &Path, game_id: &GameId) -> Result<()> {
+pub fn build<F>(project_root: &Path, game_id: &GameId, progress: F) -> Result<()>
+where
+    F: FnMut(BuildProgress),
+{
     let project = Project::open(project_root).map_err(|source| Error::Project {
         root: project_root.to_path_buf(),
         source: Box::new(source),
@@ -33,8 +37,10 @@ pub fn build(project_root: &Path, game_id: &GameId) -> Result<()> {
             root: project.root().to_path_buf(),
             source: Box::new(source),
         })?;
-    parkforge_build::build(&original, sources.path(), &destination).map_err(|source| Error::Build {
-        destination,
-        source: Box::new(source),
+    parkforge_build::build(&original, sources.path(), &destination, progress).map_err(|source| {
+        Error::Build {
+            destination,
+            source: Box::new(source),
+        }
     })
 }
