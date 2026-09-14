@@ -13,6 +13,25 @@ pub(crate) struct Cli {
 #[derive(Subcommand)]
 pub(crate) enum Command {
     Build(BuildArgs),
+    Overlay(OverlayArgs),
+}
+
+#[derive(Args)]
+pub(crate) struct OverlayArgs {
+    #[command(subcommand)]
+    pub command: OverlayCommand,
+}
+
+#[derive(Subcommand)]
+pub(crate) enum OverlayCommand {
+    Create(CreateOverlayArgs),
+}
+
+#[derive(Args)]
+pub(crate) struct CreateOverlayArgs {
+    pub game_id: GameId,
+    #[arg(long, default_value = ".")]
+    pub project: PathBuf,
 }
 
 #[derive(Args)]
