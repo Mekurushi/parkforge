@@ -6,3 +6,4 @@ Thumbs.db
 *.iso
 *.wbfs
 *.rvz
+/examples/pokepark-archipelago/

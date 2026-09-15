@@ -514,6 +514,7 @@ name = "parkforge"
 version = "0.1.0"
 dependencies = [
  "parkforge-build",
+ "parkforge-game-tree",
  "parkforge-project",
  "parkforge-types",
  "tempfile",

@@ -18,7 +18,14 @@ pub fn rebuild_game_tree<F>(tree: &Path, destination_iso: &Path, mut progress: F
 where
     F: FnMut(RebuildProgress),
 {
-    let archives = discover_archives(tree)?;
+    let staging = Builder::new()
+        .prefix(".parkforge-rebuild-tree-")
+        .tempdir()
+        .map_err(|source| Error::CreateRebuildStaging { source })?;
+    let staged_tree = staging.path().join("tree");
+    copy_tree(tree, &staged_tree)?;
+
+    let archives = discover_archives(&staged_tree)?;
     let total = archives.len();
     progress(RebuildProgress::Archives {
         completed: 0,
@@ -33,9 +40,46 @@ where
         });
     }
 
-    rebuild_iso(tree, destination_iso, |disc_progress| {
+    rebuild_iso(&staged_tree, destination_iso, |disc_progress| {
         progress(RebuildProgress::Disc(disc_progress));
     })?;
+    Ok(())
+}
+
+// TODO: check how propely deduplicating copy_tree across the whole project
+fn copy_tree(source: &Path, destination: &Path) -> Result<()> {
+    for entry in WalkDir::new(source) {
+        let entry = entry.map_err(|error| Error::CopyRebuildTree {
+            source: source.to_path_buf(),
+            destination: destination.to_path_buf(),
+            error: Box::new(error),
+        })?;
+        let input = entry.path();
+        if entry.file_type().is_symlink() {
+            return Err(Error::RebuildSymlink(input.to_path_buf()));
+        }
+        let relative = input
+            .strip_prefix(source)
+            .map_err(|error| Error::RelativeRebuildPath {
+                path: input.to_path_buf(),
+                root: source.to_path_buf(),
+                error,
+            })?;
+        let output = destination.join(relative);
+        if entry.file_type().is_dir() {
+            fs::create_dir_all(&output).map_err(|source| Error::RebuildIo {
+                path: output,
+                source,
+            })?;
+        } else if entry.file_type().is_file() {
+            let _ = fs::copy(input, &output).map_err(|source| Error::RebuildIo {
+                path: output,
+                source,
+            })?;
+        } else {
+            return Err(Error::UnsupportedRebuildEntry(input.to_path_buf()));
+        }
+    }
     Ok(())
 }
 

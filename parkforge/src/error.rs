@@ -4,6 +4,12 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("failed to rebuild ISO at {output:?}: {source}")]
+    Rebuild {
+        output: PathBuf,
+        #[source]
+        source: Box<parkforge_game_tree::Error>,
+    },
 
     #[error("project operation failed for {root:?}: {source}")]
     Project {

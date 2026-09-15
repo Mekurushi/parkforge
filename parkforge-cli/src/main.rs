@@ -25,6 +25,35 @@ fn main() -> ExitCode {
                 parkforge::BuildProgress::Committing => eprintln!("Committing build…"),
             })
         }
+        cli::Command::Rebuild(args) => {
+            let output = args.output_iso.unwrap_or_else(|| {
+                args.project
+                    .join("dist")
+                    .join(format!("{}.iso", args.game_id))
+            });
+            let mut last_disc_percent = None;
+            parkforge::rebuild(
+                &args.project,
+                &args.game_id,
+                &output,
+                |progress| match progress {
+                    parkforge::RebuildProgress::Archives { completed, total } => {
+                        eprintln!("Repacking archives: {completed} / {total}");
+                    }
+                    parkforge::RebuildProgress::Disc(progress) => {
+                        let percent = if progress.total() == 0 {
+                            100
+                        } else {
+                            progress.completed() * 100 / progress.total()
+                        };
+                        if last_disc_percent != Some(percent) {
+                            eprintln!("Building ISO: {percent}%");
+                            last_disc_percent = Some(percent);
+                        }
+                    }
+                },
+            )
+        }
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

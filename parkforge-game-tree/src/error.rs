@@ -4,6 +4,41 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("failed to create temporary rebuild-tree directory: {source}")]
+    CreateRebuildStaging {
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to copy rebuild tree from {source:?} to {destination:?}: {error}")]
+    CopyRebuildTree {
+        source: PathBuf,
+        destination: PathBuf,
+        #[source]
+        error: Box<walkdir::Error>,
+    },
+
+    #[error("failed to resolve rebuild path {path:?} below {root:?}: {error}")]
+    RelativeRebuildPath {
+        path: PathBuf,
+        root: PathBuf,
+        #[source]
+        error: std::path::StripPrefixError,
+    },
+
+    #[error("symbolic links are not supported in rebuild trees: {0:?}")]
+    RebuildSymlink(PathBuf),
+
+    #[error("unsupported rebuild-tree entry: {0:?}")]
+    UnsupportedRebuildEntry(PathBuf),
+
+    #[error("failed to prepare rebuild path {path:?}: {source}")]
+    RebuildIo {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
     #[error("Wii disc operation failed: {0}")]
     WiiDisc(#[from] parkforge_wii_disc::Error),
 

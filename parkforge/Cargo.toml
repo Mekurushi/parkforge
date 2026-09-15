@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 parkforge-build = { path = "../parkforge-build" }
+parkforge-game-tree = { path = "../parkforge-game-tree" }
 parkforge-project = { path = "../parkforge-project" }
 parkforge-types = { path = "../parkforge-types" }
 tempfile.workspace = true
