@@ -1,4 +1,5 @@
 mod cli;
+mod diagnostic;
 
 use std::process::ExitCode;
 
@@ -16,15 +17,18 @@ fn main() -> ExitCode {
                 result
             }
         },
-        cli::Command::Build(args) => {
-            parkforge::build(&args.project, &args.game_id, |progress| match progress {
+        cli::Command::Build(args) => parkforge::build(
+            &args.project,
+            &args.game_id,
+            |progress| match progress {
                 parkforge::BuildProgress::CopyingOriginal => eprintln!("Copying original…"),
                 parkforge::BuildProgress::Operations { completed, total } => {
                     eprintln!("Processing operations: {completed} / {total}");
                 }
                 parkforge::BuildProgress::Committing => eprintln!("Committing build…"),
-            })
-        }
+            },
+            |diagnostic| diagnostic::render(&diagnostic),
+        ),
         cli::Command::Rebuild(args) => {
             let output = args.output_iso.unwrap_or_else(|| {
                 args.project

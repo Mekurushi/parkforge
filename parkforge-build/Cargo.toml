@@ -4,8 +4,9 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-fsc_compiler = { git = "https://github.com/Mekurushi/pokepark-fsc.git", rev = "432ed9f448ebf65673f9c992e5df7bfcc4113860" }
-fsc_patcher = { git = "https://github.com/Mekurushi/pokepark-fsc.git", rev = "432ed9f448ebf65673f9c992e5df7bfcc4113860" }
+fsc_compiler = { git = "https://github.com/Mekurushi/pokepark-fsc.git", rev = "886c772df3316f7a65d8773811df642fc91f2609" }
+fsc_diagnostics = { git = "https://github.com/Mekurushi/pokepark-fsc.git", rev = "886c772df3316f7a65d8773811df642fc91f2609" }
+fsc_patcher = { git = "https://github.com/Mekurushi/pokepark-fsc.git", rev = "886c772df3316f7a65d8773811df642fc91f2609" }
 tempfile.workspace = true
 thiserror.workspace = true
 walkdir.workspace = true

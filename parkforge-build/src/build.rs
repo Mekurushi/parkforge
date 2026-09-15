@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use walkdir::WalkDir;
 
+use crate::diagnostic::BuildDiagnostic;
 use crate::error::{Error, Result};
 use crate::operation::Operation;
 use crate::paths::{absolute_directory, validate_no_overlap};
@@ -15,11 +16,18 @@ pub enum BuildProgress {
     Committing,
 }
 
-pub fn build<F>(original: &Path, sources: &Path, destination: &Path, mut progress: F) -> Result<()>
+pub fn build<P, D>(
+    original: &Path,
+    sources: &Path,
+    destination: &Path,
+    mut progress: P,
+    mut diagnostics: D,
+) -> Result<()>
 where
-    F: FnMut(BuildProgress),
+    P: FnMut(BuildProgress),
+    D: for<'a> FnMut(BuildDiagnostic<'a>),
 {
-    Build::new(original, sources, destination)?.run(&mut progress)
+    Build::new(original, sources, destination)?.run(&mut progress, &mut diagnostics)
 }
 
 struct Build {
@@ -45,22 +53,30 @@ impl Build {
         })
     }
 
-    fn run(self, progress: &mut impl FnMut(BuildProgress)) -> Result<()> {
+    fn run(
+        self,
+        progress: &mut impl FnMut(BuildProgress),
+        diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
+    ) -> Result<()> {
         progress(BuildProgress::CopyingOriginal);
         self.copy_tree()?;
-        self.apply_operations(progress)?;
+        self.apply_operations(progress, diagnostics)?;
         progress(BuildProgress::Committing);
         self.staging.commit()
     }
 
-    fn apply_operations(&self, progress: &mut impl FnMut(BuildProgress)) -> Result<()> {
+    fn apply_operations(
+        &self,
+        progress: &mut impl FnMut(BuildProgress),
+        diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
+    ) -> Result<()> {
         let total = self.operations.len();
         progress(BuildProgress::Operations {
             completed: 0,
             total,
         });
         for (index, operation) in self.operations.iter().enumerate() {
-            operation.process(self.staging.path())?;
+            operation.process(self.staging.path(), diagnostics)?;
             progress(BuildProgress::Operations {
                 completed: index + 1,
                 total,

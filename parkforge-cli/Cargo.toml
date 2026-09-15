@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+annotate-snippets = "0.12.16"
 clap = { version = "4", features = ["derive"] }
 parkforge = { path = "../parkforge" }
 parkforge-types = { path = "../parkforge-types" }

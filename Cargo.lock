@@ -309,12 +309,12 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 [[package]]
 name = "fsc_assembler"
 version = "0.1.0"
-source = "git+https://github.com/Mekurushi/pokepark-fsc.git?rev=432ed9f448ebf65673f9c992e5df7bfcc4113860#432ed9f448ebf65673f9c992e5df7bfcc4113860"
+source = "git+https://github.com/Mekurushi/pokepark-fsc.git?rev=886c772df3316f7a65d8773811df642fc91f2609#886c772df3316f7a65d8773811df642fc91f2609"
 
 [[package]]
 name = "fsc_codegen"
 version = "0.1.0"
-source = "git+https://github.com/Mekurushi/pokepark-fsc.git?rev=432ed9f448ebf65673f9c992e5df7bfcc4113860#432ed9f448ebf65673f9c992e5df7bfcc4113860"
+source = "git+https://github.com/Mekurushi/pokepark-fsc.git?rev=886c772df3316f7a65d8773811df642fc91f2609#886c772df3316f7a65d8773811df642fc91f2609"
 dependencies = [
  "fsc_assembler",
  "fsc_sema",
@@ -323,7 +323,7 @@ dependencies = [
 [[package]]
 name = "fsc_compiler"
 version = "0.1.0"
-source = "git+https://github.com/Mekurushi/pokepark-fsc.git?rev=432ed9f448ebf65673f9c992e5df7bfcc4113860#432ed9f448ebf65673f9c992e5df7bfcc4113860"
+source = "git+https://github.com/Mekurushi/pokepark-fsc.git?rev=886c772df3316f7a65d8773811df642fc91f2609#886c772df3316f7a65d8773811df642fc91f2609"
 dependencies = [
  "fsc_assembler",
  "fsc_codegen",
@@ -335,7 +335,7 @@ dependencies = [
 [[package]]
 name = "fsc_diagnostics"
 version = "0.1.0"
-source = "git+https://github.com/Mekurushi/pokepark-fsc.git?rev=432ed9f448ebf65673f9c992e5df7bfcc4113860#432ed9f448ebf65673f9c992e5df7bfcc4113860"
+source = "git+https://github.com/Mekurushi/pokepark-fsc.git?rev=886c772df3316f7a65d8773811df642fc91f2609#886c772df3316f7a65d8773811df642fc91f2609"
 dependencies = [
  "annotate-snippets",
 ]
@@ -343,7 +343,7 @@ dependencies = [
 [[package]]
 name = "fsc_parse"
 version = "0.1.0"
-source = "git+https://github.com/Mekurushi/pokepark-fsc.git?rev=432ed9f448ebf65673f9c992e5df7bfcc4113860#432ed9f448ebf65673f9c992e5df7bfcc4113860"
+source = "git+https://github.com/Mekurushi/pokepark-fsc.git?rev=886c772df3316f7a65d8773811df642fc91f2609#886c772df3316f7a65d8773811df642fc91f2609"
 dependencies = [
  "fsc_diagnostics",
  "logos",
@@ -352,7 +352,7 @@ dependencies = [
 [[package]]
 name = "fsc_patcher"
 version = "0.1.0"
-source = "git+https://github.com/Mekurushi/pokepark-fsc.git?rev=432ed9f448ebf65673f9c992e5df7bfcc4113860#432ed9f448ebf65673f9c992e5df7bfcc4113860"
+source = "git+https://github.com/Mekurushi/pokepark-fsc.git?rev=886c772df3316f7a65d8773811df642fc91f2609#886c772df3316f7a65d8773811df642fc91f2609"
 dependencies = [
  "fsc_assembler",
  "fsc_codegen",
@@ -366,7 +366,7 @@ dependencies = [
 [[package]]
 name = "fsc_sema"
 version = "0.1.0"
-source = "git+https://github.com/Mekurushi/pokepark-fsc.git?rev=432ed9f448ebf65673f9c992e5df7bfcc4113860#432ed9f448ebf65673f9c992e5df7bfcc4113860"
+source = "git+https://github.com/Mekurushi/pokepark-fsc.git?rev=886c772df3316f7a65d8773811df642fc91f2609#886c772df3316f7a65d8773811df642fc91f2609"
 dependencies = [
  "fsc_diagnostics",
  "fsc_parse",
@@ -526,6 +526,7 @@ name = "parkforge-build"
 version = "0.1.0"
 dependencies = [
  "fsc_compiler",
+ "fsc_diagnostics",
  "fsc_patcher",
  "tempfile",
  "thiserror 2.0.18",
@@ -536,6 +537,7 @@ dependencies = [
 name = "parkforge-cli"
 version = "0.1.0"
 dependencies = [
+ "annotate-snippets",
  "clap",
  "parkforge",
  "parkforge-types",

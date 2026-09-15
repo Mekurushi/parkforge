@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 
 use walkdir::{DirEntry, WalkDir};
 
+use crate::diagnostic::BuildDiagnostic;
 use crate::error::{Error, Result};
 use crate::formats::fsb;
 use crate::rules::{self, Classification, Format};
@@ -76,12 +77,18 @@ impl Operation {
         }))
     }
 
-    pub(crate) fn process(&self, staging_root: &Path) -> Result<()> {
+    pub(crate) fn process(
+        &self,
+        staging_root: &Path,
+        diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
+    ) -> Result<()> {
         let target = staging_root.join(&self.target);
         match self.classification {
-            Classification::LooseFile(Format::Fsb) => fsb::compile_loose(&self.source, &target),
+            Classification::LooseFile(Format::Fsb) => {
+                fsb::compile_loose(&self.source, &target, diagnostics)
+            }
             Classification::PatchDirectory(Format::Fsb) => {
-                fsb::patch_directory(&self.source, &target)
+                fsb::patch_directory(&self.source, &target, diagnostics)
             }
         }
     }
