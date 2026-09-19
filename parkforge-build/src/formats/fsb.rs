@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::diagnostic::{
     BuildDiagnostic, DiagnosticLabel, DiagnosticLabelStyle, DiagnosticSeverity,
@@ -9,86 +9,127 @@ use fsc_compiler::{CompileRequest, compile};
 use fsc_diagnostics::{Diagnostic, LabelStyle, Severity};
 use fsc_patcher::{PatchFailure, PatchRequest, parse_symbol_table, patch};
 
-pub(crate) fn compile_loose(
-    source: &Path,
-    target: &Path,
-    diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
-) -> Result<()> {
-    let script_name = source
-        .file_stem()
-        .and_then(|name| name.to_str())
-        .ok_or_else(|| Error::InvalidScriptName(source.to_path_buf()))?;
-    let text = fs::read_to_string(source).map_err(|error| Error::ReadFscSource {
-        path: source.to_path_buf(),
-        source: error,
-    })?;
-    let artifact = compile(CompileRequest::new(&text, script_name)).map_err(|failure| {
-        emit_diagnostics(source, &text, failure.diagnostics(), diagnostics);
-        Error::CompileFsc {
-            path: source.to_path_buf(),
-            failure,
-        }
-    })?;
-    // TODO: decide how to handle missing target directories
-    fs::write(target, artifact.bytes()).map_err(|error| Error::WriteFsb {
-        path: target.to_path_buf(),
-        source: error,
-    })
+pub(crate) struct Compile {
+    source: PathBuf,
+    target: PathBuf,
 }
 
-pub(crate) fn patch_directory(
-    directory: &Path,
-    target: &Path,
-    diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
-) -> Result<()> {
-    let mut entries = fs::read_dir(directory).map_err(|source| Error::InspectPath {
-        path: directory.to_path_buf(),
-        source,
-    })?;
-    match entries.next() {
-        None => return Ok(()),
-        Some(entry) => drop(entry.map_err(|source| Error::InspectPath {
-            path: directory.to_path_buf(),
+pub(crate) struct Patch {
+    directory: PathBuf,
+    source: PathBuf,
+    symbols: PathBuf,
+    target: PathBuf,
+}
+
+impl Compile {
+    pub(crate) fn new(source: PathBuf, relative_source: &Path) -> Self {
+        Self {
             source,
-        })?),
+            target: relative_source.with_extension("fsb"),
+        }
     }
 
-    let target_name = target
-        .file_name()
-        .ok_or_else(|| Error::UnsupportedSourceFormat(directory.to_path_buf()))?;
-    let source = directory.join(Path::new(target_name).with_extension("fsc"));
-    let symbols_path = directory.join("symbols.toml");
-    let text = fs::read_to_string(&source).map_err(|error| Error::ReadFscSource {
-        path: source.clone(),
-        source: error,
-    })?;
-    let original = fs::read(target).map_err(|source| Error::ReadFsb {
-        path: target.to_path_buf(),
-        source,
-    })?;
-    let symbols_text = fs::read_to_string(&symbols_path).map_err(|source| Error::ReadSymbols {
-        path: symbols_path.clone(),
-        source,
-    })?;
-    let symbols = parse_symbol_table(&symbols_text).map_err(|source| Error::ParseSymbols {
-        path: symbols_path,
-        source,
-    })?;
-    let artifact = patch(PatchRequest::new(&text, &original, &symbols)).map_err(|error| {
-        if let PatchFailure::InvalidPatchSource(failure_diagnostics) = &error {
-            emit_diagnostics(&source, &text, failure_diagnostics, diagnostics);
-        }
-        Error::PatchFsb {
-            path: source,
-            target: target.to_path_buf(),
+    pub(crate) fn source(&self) -> &Path {
+        &self.source
+    }
+
+    pub(crate) fn target(&self) -> &Path {
+        &self.target
+    }
+
+    pub(crate) fn process(
+        &self,
+        staging_root: &Path,
+        diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
+    ) -> Result<()> {
+        let target = staging_root.join(&self.target);
+        let script_name = self
+            .source
+            .file_stem()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| Error::InvalidScriptName(self.source.clone()))?;
+        let text = fs::read_to_string(&self.source).map_err(|error| Error::ReadFscSource {
+            path: self.source.clone(),
             source: error,
-        }
-    })?;
-    // TODO: find out how to export symbols
-    fs::write(target, artifact.binary()).map_err(|source| Error::WriteFsb {
-        path: target.to_path_buf(),
-        source,
-    })
+        })?;
+        let artifact = compile(CompileRequest::new(&text, script_name)).map_err(|failure| {
+            emit_diagnostics(&self.source, &text, failure.diagnostics(), diagnostics);
+            Error::CompileFsc {
+                path: self.source.clone(),
+                failure,
+            }
+        })?;
+        // TODO: decide how to handle missing target directories
+        fs::write(&target, artifact.bytes()).map_err(|error| Error::WriteFsb {
+            path: target,
+            source: error,
+        })
+    }
+}
+
+impl Patch {
+    pub(crate) fn new(directory: PathBuf, relative_directory: &Path) -> Result<Self> {
+        let target = relative_directory.with_extension("");
+        let target_name = target
+            .file_name()
+            .ok_or_else(|| Error::UnsupportedSourceFormat(directory.clone()))?;
+        let source = directory.join(Path::new(target_name).with_extension("fsc"));
+        let symbols = directory.join("symbols.toml");
+        Ok(Self {
+            directory,
+            source,
+            symbols,
+            target,
+        })
+    }
+
+    pub(crate) fn directory(&self) -> &Path {
+        &self.directory
+    }
+
+    pub(crate) fn target(&self) -> &Path {
+        &self.target
+    }
+
+    pub(crate) fn process(
+        &self,
+        staging_root: &Path,
+        diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
+    ) -> Result<()> {
+        let target = staging_root.join(&self.target);
+        let text = fs::read_to_string(&self.source).map_err(|error| Error::ReadFscSource {
+            path: self.source.clone(),
+            source: error,
+        })?;
+        let original = fs::read(&target).map_err(|source| Error::ReadFsb {
+            path: target.clone(),
+            source,
+        })?;
+        let symbols_text =
+            fs::read_to_string(&self.symbols).map_err(|source| Error::ReadSymbols {
+                path: self.symbols.clone(),
+                source,
+            })?;
+        let symbols = parse_symbol_table(&symbols_text).map_err(|source| Error::ParseSymbols {
+            path: self.symbols.clone(),
+            source,
+        })?;
+        let artifact = patch(PatchRequest::new(&text, &original, &symbols)).map_err(|error| {
+            if let PatchFailure::InvalidPatchSource(failure_diagnostics) = &error {
+                emit_diagnostics(&self.source, &text, failure_diagnostics, diagnostics);
+            }
+            Error::PatchFsb {
+                path: self.source.clone(),
+                target: target.clone(),
+                source: error,
+            }
+        })?;
+        // TODO: find out how to export symbols
+        fs::write(&target, artifact.binary()).map_err(|source| Error::WriteFsb {
+            path: target,
+            source,
+        })
+    }
 }
 
 fn emit_diagnostics(

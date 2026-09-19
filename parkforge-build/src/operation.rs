@@ -1,5 +1,5 @@
 use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use walkdir::{DirEntry, WalkDir};
 
@@ -8,19 +8,24 @@ use crate::error::{Error, Result};
 use crate::formats::fsb;
 use crate::rules::{self, Classification, Format};
 
-pub(crate) struct Operation {
-    source: PathBuf,
-    target: PathBuf,
-    classification: Classification,
+pub(crate) enum Operation {
+    CompileFsb(fsb::Compile),
+    PatchFsb(fsb::Patch),
 }
 
 impl Operation {
     pub(crate) fn source(&self) -> &Path {
-        &self.source
+        match self {
+            Self::CompileFsb(operation) => operation.source(),
+            Self::PatchFsb(operation) => operation.directory(),
+        }
     }
 
     pub(crate) fn target(&self) -> &Path {
-        &self.target
+        match self {
+            Self::CompileFsb(operation) => operation.target(),
+            Self::PatchFsb(operation) => operation.target(),
+        }
     }
 
     pub(crate) fn discover(root: &Path) -> Result<Vec<Self>> {
@@ -44,6 +49,9 @@ impl Operation {
 
         let mut operations = Vec::new();
         for entry in sources {
+            if rules::is_patch_directory(&entry) && directory_is_empty(entry.path())? {
+                continue;
+            }
             if let Some(operation) = Self::from_entry(root, entry)? {
                 operations.push(operation);
             }
@@ -57,24 +65,24 @@ impl Operation {
         };
 
         let source = entry.into_path();
-        let relative =
-            source
-                .strip_prefix(sources_root)
-                .map_err(|error| Error::RelativeSourcePath {
-                    path: source.clone(),
-                    root: sources_root.to_path_buf(),
-                    source: error,
-                })?;
-        let target = match classification {
-            Classification::LooseFile(Format::Fsb) => relative.with_extension("fsb"),
-            Classification::PatchDirectory(_) => relative.with_extension(""),
+        let relative = source
+            .strip_prefix(sources_root)
+            .map_err(|error| Error::RelativeSourcePath {
+                path: source.clone(),
+                root: sources_root.to_path_buf(),
+                source: error,
+            })?
+            .to_path_buf();
+        let operation = match classification {
+            Classification::LooseFile(Format::Fsb) => {
+                Self::CompileFsb(fsb::Compile::new(source, &relative))
+            }
+            Classification::PatchDirectory(Format::Fsb) => {
+                Self::PatchFsb(fsb::Patch::new(source, &relative)?)
+            }
         };
 
-        Ok(Some(Self {
-            source,
-            target,
-            classification,
-        }))
+        Ok(Some(operation))
     }
 
     pub(crate) fn process(
@@ -82,14 +90,26 @@ impl Operation {
         staging_root: &Path,
         diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
     ) -> Result<()> {
-        let target = staging_root.join(&self.target);
-        match self.classification {
-            Classification::LooseFile(Format::Fsb) => {
-                fsb::compile_loose(&self.source, &target, diagnostics)
-            }
-            Classification::PatchDirectory(Format::Fsb) => {
-                fsb::patch_directory(&self.source, &target, diagnostics)
-            }
+        match self {
+            Self::CompileFsb(operation) => operation.process(staging_root, diagnostics),
+            Self::PatchFsb(operation) => operation.process(staging_root, diagnostics),
+        }
+    }
+}
+
+fn directory_is_empty(directory: &Path) -> Result<bool> {
+    let mut entries = std::fs::read_dir(directory).map_err(|source| Error::InspectPath {
+        path: directory.to_path_buf(),
+        source,
+    })?;
+    match entries.next() {
+        None => Ok(true),
+        Some(entry) => {
+            drop(entry.map_err(|source| Error::InspectPath {
+                path: directory.to_path_buf(),
+                source,
+            })?);
+            Ok(false)
         }
     }
 }
