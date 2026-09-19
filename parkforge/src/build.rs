@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use parkforge_build::{BuildDiagnostic, BuildProgress};
-use parkforge_project::Project;
-use parkforge_types::GameId;
+use parkforge_project::{Project, read_build_config};
+use parkforge_types::{BuildConfig, GameId};
 use tempfile::Builder;
 
 use crate::error::{Error, Result};
@@ -16,6 +16,21 @@ where
         root: project_root.to_path_buf(),
         source: Box::new(source),
     })?;
+    // TODO: multiple sources type input (path override, typed structure, default project path)
+    let config = match read_build_config(&project.build_config_path()) {
+        Ok(config) => config,
+        Err(parkforge_project::Error::ReadBuildConfig { source, .. })
+            if source.kind() == std::io::ErrorKind::NotFound =>
+        {
+            BuildConfig::default()
+        }
+        Err(source) => {
+            return Err(Error::Project {
+                root: project.root().to_path_buf(),
+                source: Box::new(source),
+            });
+        }
+    };
     let original = project
         .original_for(game_id)
         .map_err(|source| Error::Project {
@@ -42,6 +57,7 @@ where
         &original,
         sources.path(),
         &destination,
+        config,
         progress,
         diagnostics,
     )

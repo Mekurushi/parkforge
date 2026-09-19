@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use parkforge_types::BuildConfig;
 use walkdir::WalkDir;
 
 use crate::diagnostic::BuildDiagnostic;
@@ -20,6 +21,7 @@ pub fn build<P, D>(
     original: &Path,
     sources: &Path,
     destination: &Path,
+    config: BuildConfig,
     mut progress: P,
     mut diagnostics: D,
 ) -> Result<()>
@@ -27,21 +29,32 @@ where
     P: FnMut(BuildProgress),
     D: for<'a> FnMut(BuildDiagnostic<'a>),
 {
-    Build::new(original, sources, destination)?.run(&mut progress, &mut diagnostics)
+    Build::new(original, sources, destination, config, &mut diagnostics)?
+        .run(&mut progress, &mut diagnostics)
 }
 
 struct Build {
     original: PathBuf,
     operations: Vec<Operation>,
     staging: Staging,
+    config: BuildConfig,
 }
 
 impl Build {
-    fn new(original: &Path, sources: &Path, destination: &Path) -> Result<Self> {
+    fn new(
+        original: &Path,
+        sources: &Path,
+        destination: &Path,
+        config: BuildConfig,
+        diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
+    ) -> Result<Self> {
         let original = absolute_directory(original, false)?;
         let sources = absolute_directory(sources, false)?;
         let operations = Operation::discover(&sources)?;
         validate_target_ownership(&operations)?;
+        for operation in &operations {
+            operation.check(&config, diagnostics)?;
+        }
         let staging = Staging::new(destination)?;
         validate_no_overlap(&original, staging.destination())?;
         validate_no_overlap(&sources, staging.destination())?;
@@ -50,6 +63,7 @@ impl Build {
             original,
             operations,
             staging,
+            config,
         })
     }
 
@@ -76,7 +90,7 @@ impl Build {
             total,
         });
         for (index, operation) in self.operations.iter().enumerate() {
-            operation.process(self.staging.path(), diagnostics)?;
+            operation.process(self.staging.path(), &self.config, diagnostics)?;
             progress(BuildProgress::Operations {
                 completed: index + 1,
                 total,

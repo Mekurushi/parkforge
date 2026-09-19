@@ -13,6 +13,7 @@ use crate::overlay;
 // going with hardcoded project structures for simplicity and because there is no real need to make
 // this customizable
 const CONFIG_FILE_NAME: &str = "project.toml";
+const BUILD_CONFIG_FILE_NAME: &str = "config.toml";
 const ORIGINAL_DIR_NAME: &str = "original";
 const SOURCES_DIR_NAME: &str = "src";
 const SHARED_SOURCES_DIR_NAME: &str = "shared";
@@ -177,6 +178,11 @@ impl Project {
     #[must_use]
     pub fn config_path(&self) -> PathBuf {
         self.root.join(CONFIG_FILE_NAME)
+    }
+
+    #[must_use]
+    pub fn build_config_path(&self) -> PathBuf {
+        self.root.join(BUILD_CONFIG_FILE_NAME)
     }
 
     #[must_use]

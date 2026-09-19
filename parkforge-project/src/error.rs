@@ -5,6 +5,20 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("failed to read build configuration {path:?}: {source}")]
+    ReadBuildConfig {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to parse build configuration {path:?}: {source}")]
+    ParseBuildConfig {
+        path: PathBuf,
+        #[source]
+        source: toml::de::Error,
+    },
+
     #[error("merge destination {0:?} must be an existing directory")]
     MergeDestinationNotDirectory(PathBuf),
 

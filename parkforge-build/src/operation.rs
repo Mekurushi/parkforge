@@ -1,6 +1,7 @@
 use std::ffi::OsStr;
 use std::path::Path;
 
+use parkforge_types::BuildConfig;
 use walkdir::{DirEntry, WalkDir};
 
 use crate::diagnostic::BuildDiagnostic;
@@ -88,11 +89,23 @@ impl Operation {
     pub(crate) fn process(
         &self,
         staging_root: &Path,
+        config: &BuildConfig,
         diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
     ) -> Result<()> {
         match self {
-            Self::CompileFsb(operation) => operation.process(staging_root, diagnostics),
-            Self::PatchFsb(operation) => operation.process(staging_root, diagnostics),
+            Self::CompileFsb(operation) => operation.process(staging_root, config, diagnostics),
+            Self::PatchFsb(operation) => operation.process(staging_root, config, diagnostics),
+        }
+    }
+
+    pub(crate) fn check(
+        &self,
+        config: &BuildConfig,
+        diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
+    ) -> Result<()> {
+        match self {
+            Self::CompileFsb(operation) => operation.check(config, diagnostics),
+            Self::PatchFsb(operation) => operation.check(config, diagnostics),
         }
     }
 }

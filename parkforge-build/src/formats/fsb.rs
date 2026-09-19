@@ -5,9 +5,13 @@ use crate::diagnostic::{
     BuildDiagnostic, DiagnosticLabel, DiagnosticLabelStyle, DiagnosticSeverity,
 };
 use crate::error::{Error, Result};
-use fsc_compiler::{CompileRequest, compile};
+use fsc_compiler::{
+    CompileRequest, ConfigRequirement, ConfigType, ConfigValue, ConfigValues, compile,
+    required_configs,
+};
 use fsc_diagnostics::{Diagnostic, LabelStyle, Severity};
 use fsc_patcher::{PatchFailure, PatchRequest, parse_symbol_table, patch};
+use parkforge_types::{BuildConfig, BuildConfigValue};
 
 pub(crate) struct Compile {
     source: PathBuf,
@@ -19,6 +23,10 @@ pub(crate) struct Patch {
     source: PathBuf,
     symbols: PathBuf,
     target: PathBuf,
+}
+
+struct FscConfigMapper {
+    requirements: Vec<ConfigRequirement>,
 }
 
 impl Compile {
@@ -37,9 +45,18 @@ impl Compile {
         &self.target
     }
 
+    pub(crate) fn check(
+        &self,
+        config: &BuildConfig,
+        diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
+    ) -> Result<()> {
+        check_source(&self.source, config, diagnostics)
+    }
+
     pub(crate) fn process(
         &self,
         staging_root: &Path,
+        config: &BuildConfig,
         diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
     ) -> Result<()> {
         let target = staging_root.join(&self.target);
@@ -52,13 +69,23 @@ impl Compile {
             path: self.source.clone(),
             source: error,
         })?;
-        let artifact = compile(CompileRequest::new(&text, script_name)).map_err(|failure| {
+        let requirements = required_configs(&text).map_err(|failure| {
             emit_diagnostics(&self.source, &text, failure.diagnostics(), diagnostics);
             Error::CompileFsc {
                 path: self.source.clone(),
                 failure,
             }
         })?;
+        let config_values = FscConfigMapper::new(requirements).map(&self.source, config)?;
+        let artifact = compile(CompileRequest::new(&text, script_name, &config_values)).map_err(
+            |failure| {
+                emit_diagnostics(&self.source, &text, failure.diagnostics(), diagnostics);
+                Error::CompileFsc {
+                    path: self.source.clone(),
+                    failure,
+                }
+            },
+        )?;
         // TODO: decide how to handle missing target directories
         fs::write(&target, artifact.bytes()).map_err(|error| Error::WriteFsb {
             path: target,
@@ -91,9 +118,18 @@ impl Patch {
         &self.target
     }
 
+    pub(crate) fn check(
+        &self,
+        config: &BuildConfig,
+        diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
+    ) -> Result<()> {
+        check_source(&self.source, config, diagnostics)
+    }
+
     pub(crate) fn process(
         &self,
         staging_root: &Path,
+        config: &BuildConfig,
         diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
     ) -> Result<()> {
         let target = staging_root.join(&self.target);
@@ -101,6 +137,14 @@ impl Patch {
             path: self.source.clone(),
             source: error,
         })?;
+        let requirements = required_configs(&text).map_err(|failure| {
+            emit_diagnostics(&self.source, &text, failure.diagnostics(), diagnostics);
+            Error::CompileFsc {
+                path: self.source.clone(),
+                failure,
+            }
+        })?;
+        let config_values = FscConfigMapper::new(requirements).map(&self.source, config)?;
         let original = fs::read(&target).map_err(|source| Error::ReadFsb {
             path: target.clone(),
             source,
@@ -114,7 +158,13 @@ impl Patch {
             path: self.symbols.clone(),
             source,
         })?;
-        let artifact = patch(PatchRequest::new(&text, &original, &symbols)).map_err(|error| {
+        let artifact = patch(PatchRequest::new(
+            &text,
+            &original,
+            &symbols,
+            &config_values,
+        ))
+        .map_err(|error| {
             if let PatchFailure::InvalidPatchSource(failure_diagnostics) = &error {
                 emit_diagnostics(&self.source, &text, failure_diagnostics, diagnostics);
             }
@@ -129,6 +179,89 @@ impl Patch {
             path: target,
             source,
         })
+    }
+}
+
+fn check_source(
+    source: &Path,
+    config: &BuildConfig,
+    diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
+) -> Result<()> {
+    //TODO: aggregated diagnostics output
+    let text = fs::read_to_string(source).map_err(|error| Error::ReadFscSource {
+        path: source.to_path_buf(),
+        source: error,
+    })?;
+    // The required_configs check passes also the sema phase so we can use that to do both; sema
+    // check the source and validate the configs
+    let requirements = required_configs(&text).map_err(|failure| {
+        emit_diagnostics(source, &text, failure.diagnostics(), diagnostics);
+        Error::CompileFsc {
+            path: source.to_path_buf(),
+            failure,
+        }
+    })?;
+    FscConfigMapper::new(requirements).validate(source, config)
+}
+
+impl FscConfigMapper {
+    fn new(requirements: Vec<ConfigRequirement>) -> Self {
+        Self { requirements }
+    }
+
+    fn validate(&self, source: &Path, config: &BuildConfig) -> Result<()> {
+        for requirement in &self.requirements {
+            let _value = Self::value(source, config, requirement)?;
+        }
+        Ok(())
+    }
+
+    fn map(&self, source: &Path, config: &BuildConfig) -> Result<ConfigValues> {
+        let mut resolved = ConfigValues::new();
+        for requirement in &self.requirements {
+            let value = Self::value(source, config, requirement)?;
+            let value = match (requirement.ty, value) {
+                (ConfigType::Int, BuildConfigValue::Integer(value)) => ConfigValue::Int(*value),
+                (ConfigType::Float, BuildConfigValue::Float(value)) => ConfigValue::Float(*value),
+                (ConfigType::Bool, BuildConfigValue::Boolean(value)) => ConfigValue::Bool(*value),
+                (ConfigType::String, BuildConfigValue::String(value)) => {
+                    ConfigValue::String(value.clone())
+                }
+                _ => unreachable!("configuration value was validated before mapping"),
+            };
+            drop(resolved.insert(requirement.name.clone(), value));
+        }
+        Ok(resolved)
+    }
+
+    fn value<'a>(
+        source: &Path,
+        config: &'a BuildConfig,
+        requirement: &ConfigRequirement,
+    ) -> Result<&'a BuildConfigValue> {
+        let value = config.values().get(&requirement.name).ok_or_else(|| {
+            Error::missing_fsc_config(
+                source.to_path_buf(),
+                requirement.name.clone(),
+                requirement.ty,
+            )
+        })?;
+        if matches!(
+            (requirement.ty, value),
+            (ConfigType::Int, BuildConfigValue::Integer(_))
+                | (ConfigType::Float, BuildConfigValue::Float(_))
+                | (ConfigType::Bool, BuildConfigValue::Boolean(_))
+                | (ConfigType::String, BuildConfigValue::String(_))
+        ) {
+            Ok(value)
+        } else {
+            Err(Error::invalid_fsc_config_type(
+                source.to_path_buf(),
+                requirement.name.clone(),
+                requirement.ty,
+                value,
+            ))
+        }
     }
 }
 

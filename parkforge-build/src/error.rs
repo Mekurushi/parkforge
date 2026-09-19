@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use fsc_compiler::ConfigType;
+use parkforge_types::BuildConfigValue;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -54,6 +56,23 @@ pub enum Error {
     CompileFsc {
         path: PathBuf,
         failure: fsc_compiler::CompileFailure,
+    },
+
+    #[error("FSC source {path:?} requires configuration value {name:?} of type {expected}")]
+    MissingFscConfig {
+        path: PathBuf,
+        name: String,
+        expected: &'static str,
+    },
+
+    #[error(
+        "FSC source {path:?} requires configuration value {name:?} of type {expected}, but its configured type is {found}"
+    )]
+    InvalidFscConfigType {
+        path: PathBuf,
+        name: String,
+        expected: &'static str,
+        found: &'static str,
     },
 
     #[error("failed to write FSB {path:?}: {source}")]
@@ -185,6 +204,48 @@ pub enum Error {
         #[source]
         source: std::io::Error,
     },
+}
+
+impl Error {
+    pub(crate) fn missing_fsc_config(path: PathBuf, name: String, expected: ConfigType) -> Self {
+        Self::MissingFscConfig {
+            path,
+            name,
+            expected: config_type_name(expected),
+        }
+    }
+
+    pub(crate) fn invalid_fsc_config_type(
+        path: PathBuf,
+        name: String,
+        expected: ConfigType,
+        found: &BuildConfigValue,
+    ) -> Self {
+        Self::InvalidFscConfigType {
+            path,
+            name,
+            expected: config_type_name(expected),
+            found: value_type_name(found),
+        }
+    }
+}
+
+const fn config_type_name(config_type: ConfigType) -> &'static str {
+    match config_type {
+        ConfigType::Int => "int",
+        ConfigType::Float => "float",
+        ConfigType::Bool => "bool",
+        ConfigType::String => "string",
+    }
+}
+
+const fn value_type_name(value: &BuildConfigValue) -> &'static str {
+    match value {
+        BuildConfigValue::Integer(_) => "int",
+        BuildConfigValue::Float(_) => "float",
+        BuildConfigValue::Boolean(_) => "bool",
+        BuildConfigValue::String(_) => "string",
+    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
