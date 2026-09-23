@@ -6,26 +6,32 @@ use walkdir::{DirEntry, WalkDir};
 
 use crate::diagnostic::BuildDiagnostic;
 use crate::error::{Error, Result};
-use crate::formats::fsb;
+use crate::formats::{fsb, rlb};
 use crate::rules::{self, Classification, Format};
 
 pub(crate) enum Operation {
     CompileFsb(fsb::Compile),
+    CreateRlb(rlb::Create),
     PatchFsb(fsb::Patch),
+    PatchRlb(rlb::Patch),
 }
 
 impl Operation {
     pub(crate) fn source(&self) -> &Path {
         match self {
             Self::CompileFsb(operation) => operation.source(),
+            Self::CreateRlb(operation) => operation.source(),
             Self::PatchFsb(operation) => operation.directory(),
+            Self::PatchRlb(operation) => operation.directory(),
         }
     }
 
     pub(crate) fn target(&self) -> &Path {
         match self {
             Self::CompileFsb(operation) => operation.target(),
+            Self::CreateRlb(operation) => operation.target(),
             Self::PatchFsb(operation) => operation.target(),
+            Self::PatchRlb(operation) => operation.target(),
         }
     }
 
@@ -78,8 +84,14 @@ impl Operation {
             Classification::LooseFile(Format::Fsb) => {
                 Self::CompileFsb(fsb::Compile::new(source, &relative))
             }
+            Classification::LooseFile(Format::Rlb) => {
+                Self::CreateRlb(rlb::Create::new(source, &relative))
+            }
             Classification::PatchDirectory(Format::Fsb) => {
                 Self::PatchFsb(fsb::Patch::new(source, &relative)?)
+            }
+            Classification::PatchDirectory(Format::Rlb) => {
+                Self::PatchRlb(rlb::Patch::new(source, &relative)?)
             }
         };
 
@@ -94,7 +106,9 @@ impl Operation {
     ) -> Result<()> {
         match self {
             Self::CompileFsb(operation) => operation.process(staging_root, config, diagnostics),
+            Self::CreateRlb(operation) => operation.process(staging_root, config, diagnostics),
             Self::PatchFsb(operation) => operation.process(staging_root, config, diagnostics),
+            Self::PatchRlb(operation) => operation.process(staging_root, config, diagnostics),
         }
     }
 
@@ -105,7 +119,9 @@ impl Operation {
     ) -> Result<()> {
         match self {
             Self::CompileFsb(operation) => operation.check(config, diagnostics),
+            Self::CreateRlb(operation) => operation.check(config, diagnostics),
             Self::PatchFsb(operation) => operation.check(config, diagnostics),
+            Self::PatchRlb(operation) => operation.check(config, diagnostics),
         }
     }
 }

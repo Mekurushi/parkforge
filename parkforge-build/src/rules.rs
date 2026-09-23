@@ -5,6 +5,7 @@ use walkdir::DirEntry;
 
 use crate::error::{Error, Result};
 
+// TODO: collapse Classifications
 pub(crate) enum Classification {
     LooseFile(Format),
     PatchDirectory(Format),
@@ -12,6 +13,7 @@ pub(crate) enum Classification {
 
 pub(crate) enum Format {
     Fsb,
+    Rlb,
 }
 
 pub(crate) fn classify(entry: &DirEntry) -> Result<Option<Classification>> {
@@ -25,12 +27,22 @@ pub(crate) fn classify(entry: &DirEntry) -> Result<Option<Classification>> {
                 Some(extension) if extension == OsStr::new("fsb") => {
                     Ok(Some(Classification::PatchDirectory(Format::Fsb)))
                 }
+                Some(extension) if extension == OsStr::new("rlb") => {
+                    Ok(Some(Classification::PatchDirectory(Format::Rlb)))
+                }
                 _ => Err(unsupported()),
             }
         }
         entry if entry.file_type().is_file() => match source.extension() {
             Some(extension) if extension == OsStr::new("fsc") => {
                 Ok(Some(Classification::LooseFile(Format::Fsb)))
+            }
+            Some(extension)
+                if extension == OsStr::new("toml")
+                    && source.file_stem().map(Path::new).and_then(Path::extension)
+                        == Some(OsStr::new("rlb")) =>
+            {
+                Ok(Some(Classification::LooseFile(Format::Rlb)))
             }
             _ => Err(unsupported()),
         },

@@ -96,7 +96,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f4b52fe7fbd9e207b879c52c5af7efd861c2f4e234ab4f744b0bdc04a863623"
 dependencies = [
  "array-init",
- "binrw_derive",
+ "binrw_derive 0.14.2",
+ "bytemuck",
+]
+
+[[package]]
+name = "binrw"
+version = "0.15.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ad120d555272286c1017d25165ab8bd74806f13fc85b258484ec7e4ce75458f"
+dependencies = [
+ "array-init",
+ "binrw_derive 0.15.2",
  "bytemuck",
 ]
 
@@ -107,10 +118,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7196f6935a944081728167ce6e3a599bd38d6d80d21afe4ca17be2097a6682f"
 dependencies = [
  "either",
- "owo-colors",
+ "owo-colors 3.5.0",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "binrw_derive"
+version = "0.15.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6df92e0e9baae4dc82c7bad7715ca40c0a5c71539057bf2ea04a5c29c980410b"
+dependencies = [
+ "either",
+ "owo-colors 4.4.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -256,7 +280,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2e8ada909e0b9b37007727e2a81889496c4240406ba6eafdcda89633e8ce786f"
 dependencies = [
  "aes",
- "binrw",
+ "binrw 0.14.2",
  "cbc",
  "encoding_rs",
  "sha1",
@@ -518,6 +542,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 
 [[package]]
+name = "owo-colors"
+version = "4.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13c45bb4a6ae1280ec0803b1ef9d3455eb50f01efbbe1447ab020f1d54fba9d8"
+
+[[package]]
 name = "parkforge"
 version = "0.1.0"
 dependencies = [
@@ -537,8 +567,11 @@ dependencies = [
  "fsc_diagnostics",
  "fsc_patcher",
  "parkforge-types",
+ "rlb-domain",
+ "serde",
  "tempfile",
  "thiserror 2.0.18",
+ "toml",
  "walkdir",
 ]
 
@@ -588,7 +621,7 @@ dependencies = [
 name = "parkforge-wii-disc"
 version = "0.1.0"
 dependencies = [
- "binrw",
+ "binrw 0.14.2",
  "disc_riider",
  "parkforge-types",
  "tempfile",
@@ -643,6 +676,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bca40a312222d8ba74837cb474edef44b37f561da5f773981007a10bbaa992b0"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "rlb-domain"
+version = "0.1.0"
+source = "git+https://github.com/Mekurushi/pokepark-rlb.git?rev=affccfdd5afe4a4e7f490da71f568e6d656581b1#affccfdd5afe4a4e7f490da71f568e6d656581b1"
+dependencies = [
+ "encoding_rs",
+ "rlb-error",
+ "rlb-format",
+ "slotmap",
+]
+
+[[package]]
+name = "rlb-error"
+version = "0.1.0"
+source = "git+https://github.com/Mekurushi/pokepark-rlb.git?rev=affccfdd5afe4a4e7f490da71f568e6d656581b1#affccfdd5afe4a4e7f490da71f568e6d656581b1"
+dependencies = [
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "rlb-format"
+version = "0.1.0"
+source = "git+https://github.com/Mekurushi/pokepark-rlb.git?rev=affccfdd5afe4a4e7f490da71f568e6d656581b1#affccfdd5afe4a4e7f490da71f568e6d656581b1"
+dependencies = [
+ "binrw 0.15.2",
+ "rlb-error",
 ]
 
 [[package]]
@@ -728,6 +789,15 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
+]
+
+[[package]]
+name = "slotmap"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdd58c3c93c3d278ca835519292445cb4b0d4dc59ccfdf7ceadaab3f8aeb4038"
+dependencies = [
+ "version_check",
 ]
 
 [[package]]
@@ -873,7 +943,7 @@ version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "504ed69ce6fe064b6302bb1ed35f064116a1d5e3be057cffdc0c1a641026cb05"
 dependencies = [
- "binrw",
+ "binrw 0.14.2",
  "thiserror 2.0.18",
 ]
 
