@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use super::value::SourceValue;
 use crate::diagnostic::BuildDiagnostic;
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, RlbValueLocation};
 
 pub(crate) struct Create {
     source: PathBuf,
@@ -92,7 +92,12 @@ impl CreateDocument {
             for (row_index, row) in table.rows.iter().enumerate() {
                 for (field, value) in row {
                     drop(value.resolve(config).map_err(|error| {
-                        error.into_build_error(path, &table.label, row_index, field)
+                        error.into_build_error(
+                            path,
+                            &table.label,
+                            RlbValueLocation::Row(row_index),
+                            field,
+                        )
                     })?);
                 }
             }
@@ -109,7 +114,12 @@ impl CreateDocument {
                 let mut row = Row::new();
                 for (field, source_value) in source_row {
                     let value = source_value.resolve(config).map_err(|error| {
-                        error.into_build_error(path, &table.label, row_index, field)
+                        error.into_build_error(
+                            path,
+                            &table.label,
+                            RlbValueLocation::Row(row_index),
+                            field,
+                        )
                     })?;
                     drop(row.insert(field, value));
                 }

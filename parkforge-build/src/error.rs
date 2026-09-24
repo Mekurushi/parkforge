@@ -1,9 +1,25 @@
+use std::fmt;
 use std::path::PathBuf;
 
 use fsc_compiler::ConfigType;
 use parkforge_types::BuildConfigValue;
 use rlb_domain::Error as RlbError;
 use thiserror::Error;
+
+#[derive(Debug)]
+pub enum RlbValueLocation {
+    Row(usize),
+    Append(usize),
+}
+
+impl fmt::Display for RlbValueLocation {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Row(index) => write!(formatter, "row {index}"),
+            Self::Append(index) => write!(formatter, "append {index}"),
+        }
+    }
+}
 
 //TODO: decentralize errors into their corresponding concerns; rlb errors into rlb-errors, fsb
 // errrors into fsb-errors etc.
@@ -40,46 +56,53 @@ pub enum Error {
         field: String,
     },
 
+    #[error("RLB source {path:?} removes table {table:?}, row {row} more than once")]
+    DuplicateRlbRemoval {
+        path: PathBuf,
+        table: String,
+        row: usize,
+    },
+
     #[error(
-        "RLB source {path:?} has an invalid assignment for table {table:?}, row {row}, field {field:?}: {message}"
+        "RLB source {path:?} has an invalid assignment for table {table:?}, {location}, field {field:?}: {message}"
     )]
     InvalidRlbAssignment {
         path: PathBuf,
         table: String,
-        row: usize,
+        location: RlbValueLocation,
         field: String,
         message: &'static str,
     },
 
     #[error(
-        "RLB source {path:?} assignment for table {table:?}, row {row}, field {field:?} requires missing configuration value {name:?}"
+        "RLB source {path:?} assignment for table {table:?}, {location}, field {field:?} requires missing configuration value {name:?}"
     )]
     MissingRlbConfig {
         path: PathBuf,
         table: String,
-        row: usize,
+        location: RlbValueLocation,
         field: String,
         name: String,
     },
 
     #[error(
-        "RLB source {path:?} assignment for table {table:?}, row {row}, field {field:?} has integer {value}, which does not fit in u32"
+        "RLB source {path:?} assignment for table {table:?}, {location}, field {field:?} has integer {value}, which does not fit in u32"
     )]
     InvalidRlbInteger {
         path: PathBuf,
         table: String,
-        row: usize,
+        location: RlbValueLocation,
         field: String,
         value: i64,
     },
 
     #[error(
-        "RLB source {path:?} assignment for table {table:?}, row {row}, field {field:?} has float {value}, which must be finite after conversion to f32"
+        "RLB source {path:?} assignment for table {table:?}, {location}, field {field:?} has float {value}, which must be finite after conversion to f32"
     )]
     InvalidRlbFloat {
         path: PathBuf,
         table: String,
-        row: usize,
+        location: RlbValueLocation,
         field: String,
         value: f64,
     },
@@ -130,6 +153,30 @@ pub enum Error {
         table: String,
         row: usize,
         field: String,
+        #[source]
+        source: RlbError,
+    },
+
+    #[error(
+        "failed to remove row {row} from table {table:?} in {target:?} for RLB source {path:?}: {source}"
+    )]
+    RemoveRlbRow {
+        path: PathBuf,
+        target: PathBuf,
+        table: String,
+        row: usize,
+        #[source]
+        source: RlbError,
+    },
+
+    #[error(
+        "failed to apply append {append} to table {table:?} in {target:?} for RLB source {path:?}: {source}"
+    )]
+    AppendRlbRow {
+        path: PathBuf,
+        target: PathBuf,
+        table: String,
+        append: usize,
         #[source]
         source: RlbError,
     },

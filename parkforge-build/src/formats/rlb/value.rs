@@ -4,7 +4,7 @@ use parkforge_types::{BuildConfig, BuildConfigValue};
 use rlb_domain::Value;
 use serde::Deserialize;
 
-use crate::error::Error;
+use crate::error::{Error, RlbValueLocation};
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
@@ -92,35 +92,35 @@ impl ResolveError {
         self,
         path: &Path,
         table: &str,
-        row: usize,
+        location: RlbValueLocation,
         field: &str,
     ) -> Error {
         match self {
             Self::MissingConfig(name) => Error::MissingRlbConfig {
                 path: path.to_path_buf(),
                 table: table.to_owned(),
-                row,
+                location,
                 field: field.to_owned(),
                 name,
             },
             Self::InvalidNull => Error::InvalidRlbAssignment {
                 path: path.to_path_buf(),
                 table: table.to_owned(),
-                row,
+                location,
                 field: field.to_owned(),
                 message: "null must be true",
             },
             Self::InvalidInteger(value) => Error::InvalidRlbInteger {
                 path: path.to_path_buf(),
                 table: table.to_owned(),
-                row,
+                location,
                 field: field.to_owned(),
                 value,
             },
             Self::InvalidFloat(value) => Error::InvalidRlbFloat {
                 path: path.to_path_buf(),
                 table: table.to_owned(),
-                row,
+                location,
                 field: field.to_owned(),
                 value,
             },
