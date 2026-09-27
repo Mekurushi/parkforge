@@ -6,11 +6,15 @@ use parkforge_types::BuildConfig;
 
 use super::artifact::Artifact;
 use super::binary::Dol;
+use super::config::{ConfigMappings, ConfigWrite};
 use super::error::{Error, Result};
 use super::patch::{self, PatchMetadata};
+use super::symbols::CustomSymbols;
 use crate::diagnostic::BuildDiagnostic;
 
 pub(crate) struct Patch {
+    configs: PathBuf,
+    custom_symbols: PathBuf,
     directory: PathBuf,
     metadata: PathBuf,
     patches: PathBuf,
@@ -20,6 +24,8 @@ pub(crate) struct Patch {
 impl Patch {
     pub(crate) fn new(directory: PathBuf, relative_directory: &Path) -> Self {
         Self {
+            configs: directory.join("configs.toml"),
+            custom_symbols: directory.join("custom_symbols.yaml"),
             metadata: directory.join("metadata.toml"),
             patches: directory.join("patches"),
             directory,
@@ -34,23 +40,22 @@ impl Patch {
     pub(crate) fn target(&self) -> &Path {
         &self.target
     }
-    //TODO: config support
     pub(crate) fn check(
         &self,
-        _config: &BuildConfig,
+        config: &BuildConfig,
         _diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
     ) -> Result<()> {
-        drop(self.read_sources()?);
+        drop(self.read_sources(config)?);
         Ok(())
     }
 
     pub(crate) fn process(
         &self,
         staging_root: &Path,
-        _config: &BuildConfig,
+        config: &BuildConfig,
         _diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
     ) -> Result<()> {
-        let (metadata, artifacts) = self.read_sources()?;
+        let (metadata, artifacts, config_writes) = self.read_sources(config)?;
         let target = staging_root.join(&self.target);
         let bytes = fs::read(&target).map_err(|source| Error::ReadDol {
             path: target.clone(),
@@ -61,6 +66,9 @@ impl Patch {
         for artifact in artifacts {
             patch::apply(&mut dol, &artifact.patchlets, &metadata)?;
         }
+        for config_write in config_writes {
+            dol.write(config_write.address, &config_write.data)?;
+        }
 
         fs::write(&target, dol.into_bytes()).map_err(|source| Error::WriteDol {
             path: target,
@@ -68,7 +76,10 @@ impl Patch {
         })
     }
 
-    fn read_sources(&self) -> Result<(PatchMetadata, Vec<Artifact>)> {
+    fn read_sources(
+        &self,
+        config: &BuildConfig,
+    ) -> Result<(PatchMetadata, Vec<Artifact>, Vec<ConfigWrite>)> {
         let metadata =
             fs::read_to_string(&self.metadata).map_err(|source| Error::ReadPatchSource {
                 path: self.metadata.clone(),
@@ -109,6 +120,28 @@ impl Patch {
                 Artifact::parse(&text)
             })
             .collect::<Result<_>>()?;
-        Ok((metadata, artifacts))
+
+        let config_writes = match fs::read_to_string(&self.configs) {
+            Ok(text) => {
+                let mappings = ConfigMappings::parse(&text)?;
+                let symbols = fs::read_to_string(&self.custom_symbols).map_err(|source| {
+                    Error::ReadPatchSource {
+                        path: self.custom_symbols.clone(),
+                        source,
+                    }
+                })?;
+                let symbols = CustomSymbols::parse(&symbols)?;
+                mappings.resolve(config, &symbols)?
+            }
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+            Err(source) => {
+                return Err(Error::ReadPatchSource {
+                    path: self.configs.clone(),
+                    source,
+                });
+            }
+        };
+
+        Ok((metadata, artifacts, config_writes))
     }
 }

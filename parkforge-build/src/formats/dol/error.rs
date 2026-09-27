@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use parkforge_types::BuildConfigValue;
 use thiserror::Error;
 
 pub(crate) type Result<T> = std::result::Result<T, Error>;
@@ -91,4 +92,63 @@ pub enum Error {
         #[source]
         source: toml::de::Error,
     },
+
+    #[error("failed to parse DOL patch configuration mappings: {source}")]
+    ParseConfigs {
+        #[source]
+        source: toml::de::Error,
+    },
+
+    #[error("failed to parse DOL custom symbols: {source}")]
+    ParseCustomSymbols {
+        #[source]
+        source: serde_yaml_ng::Error,
+    },
+
+    #[error("DOL patch configuration mapping {name:?} requires a missing configuration value")]
+    MissingConfig { name: String },
+
+    #[error("DOL patch configuration mapping {name:?} requires a missing custom symbol")]
+    MissingCustomSymbol { name: String },
+
+    #[error(
+        "DOL patch configuration mapping {name:?} requires a value of type {expected}, but its configured type is {found}"
+    )]
+    InvalidConfigType {
+        name: String,
+        expected: &'static str,
+        found: &'static str,
+    },
+
+    #[error(
+        "DOL patch configuration mapping {name:?} cannot encode negative integer {value} as u32"
+    )]
+    NegativeU32 { name: String, value: i32 },
+
+    #[error("DOL string configuration mapping {name:?} requires a size")]
+    MissingStringSize { name: String },
+
+    #[error("DOL {encoding} configuration mapping {name:?} must not specify a size")]
+    UnexpectedConfigSize {
+        name: String,
+        encoding: &'static str,
+    },
+
+    #[error(
+        "DOL string configuration mapping {name:?} encodes to {length} bytes, exceeding its size of {size}"
+    )]
+    StringTooLong {
+        name: String,
+        length: usize,
+        size: usize,
+    },
+}
+
+pub(super) const fn config_value_type(value: &BuildConfigValue) -> &'static str {
+    match value {
+        BuildConfigValue::Integer(_) => "integer",
+        BuildConfigValue::Float(_) => "float",
+        BuildConfigValue::Boolean(_) => "boolean",
+        BuildConfigValue::String(_) => "string",
+    }
 }
