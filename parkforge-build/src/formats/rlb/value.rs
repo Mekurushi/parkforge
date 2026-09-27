@@ -4,7 +4,7 @@ use parkforge_types::{BuildConfig, BuildConfigValue};
 use rlb_domain::Value;
 use serde::Deserialize;
 
-use crate::error::{Error, RlbValueLocation};
+use super::error::{Error, RlbValueLocation};
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]

@@ -1,6 +1,8 @@
 mod create;
+mod error;
+mod operation;
 mod patch;
 mod value;
 
-pub(crate) use create::Create;
-pub(crate) use patch::Patch;
+pub use error::Error;
+pub(crate) use operation::{Create, Patch};

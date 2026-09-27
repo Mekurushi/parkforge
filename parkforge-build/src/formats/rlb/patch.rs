@@ -1,84 +1,17 @@
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use parkforge_types::BuildConfig;
 use rlb_domain::{RLBFile, Row};
 use serde::Deserialize;
 
+use super::error::{Error, Result, RlbValueLocation};
 use super::value::SourceValue;
-use crate::diagnostic::BuildDiagnostic;
-use crate::error::{Error, Result, RlbValueLocation};
-
-pub(crate) struct Patch {
-    directory: PathBuf,
-    source: PathBuf,
-    target: PathBuf,
-}
-
-impl Patch {
-    pub(crate) fn new(directory: PathBuf, relative_directory: &Path) -> Result<Self> {
-        let target = relative_directory.with_extension("");
-        let target_name = target
-            .file_name()
-            .ok_or_else(|| Error::UnsupportedSourceFormat(directory.clone()))?;
-        let source = directory.join(Path::new(target_name).with_extension("toml"));
-        Ok(Self {
-            directory,
-            source,
-            target,
-        })
-    }
-
-    pub(crate) fn directory(&self) -> &Path {
-        &self.directory
-    }
-
-    pub(crate) fn target(&self) -> &Path {
-        &self.target
-    }
-
-    pub(crate) fn check(
-        &self,
-        config: &BuildConfig,
-        _diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
-    ) -> Result<()> {
-        PatchDocument::read(&self.source)?.check(&self.source, config)
-    }
-
-    pub(crate) fn process(
-        &self,
-        staging_root: &Path,
-        config: &BuildConfig,
-        _diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
-    ) -> Result<()> {
-        let target = staging_root.join(&self.target);
-        let source = PatchDocument::read(&self.source)?;
-        let bytes = fs::read(&target).map_err(|source| Error::ReadRlb {
-            path: target.clone(),
-            source,
-        })?;
-        let mut file = RLBFile::parse(&bytes).map_err(|source| Error::ParseRlb {
-            path: target.clone(),
-            source,
-        })?;
-
-        source.apply(&self.source, &target, config, &mut file)?;
-
-        let bytes = file.write().map_err(|source| Error::SerializeRlb {
-            path: target.clone(),
-            source,
-        })?;
-        fs::write(&target, bytes).map_err(|source| Error::WriteRlb {
-            path: target,
-            source,
-        })
-    }
-}
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct PatchDocument {
+pub(super) struct PatchDocument {
     #[serde(default)]
     edits: Vec<Edit>,
     #[serde(default)]
@@ -112,7 +45,7 @@ struct Append {
 }
 
 impl PatchDocument {
-    pub(crate) fn read(path: &Path) -> Result<Self> {
+    pub(super) fn read(path: &Path) -> Result<Self> {
         let text = fs::read_to_string(path).map_err(|source| Error::ReadRlbSource {
             path: path.to_path_buf(),
             source,
@@ -123,7 +56,7 @@ impl PatchDocument {
         })
     }
 
-    pub(crate) fn check(&self, path: &Path, config: &BuildConfig) -> Result<()> {
+    pub(super) fn check(&self, path: &Path, config: &BuildConfig) -> Result<()> {
         let mut assigned = HashSet::new();
         for edit in &self.edits {
             for (field, value) in &edit.set {
@@ -172,7 +105,7 @@ impl PatchDocument {
         Ok(())
     }
 
-    pub(crate) fn apply(
+    pub(super) fn apply(
         &self,
         path: &Path,
         target: &Path,

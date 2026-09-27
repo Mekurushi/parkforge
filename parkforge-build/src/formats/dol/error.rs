@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use parkforge_types::BuildConfigValue;
 use thiserror::Error;
 
-pub(crate) type Result<T> = std::result::Result<T, Error>;
+pub(super) type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Error)]
 pub enum Error {

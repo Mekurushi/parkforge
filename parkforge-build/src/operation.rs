@@ -101,13 +101,21 @@ impl Operation {
         diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
     ) -> Result<()> {
         match self {
-            Self::CompileFsb(operation) => operation.process(staging_root, config, diagnostics),
-            Self::CreateRlb(operation) => operation.process(staging_root, config, diagnostics),
+            Self::CompileFsb(operation) => operation
+                .process(staging_root, config, diagnostics)
+                .map_err(Error::from),
+            Self::CreateRlb(operation) => operation
+                .process(staging_root, config, diagnostics)
+                .map_err(Error::from),
             Self::PatchDol(operation) => operation
                 .process(staging_root, config, diagnostics)
                 .map_err(Error::from),
-            Self::PatchFsb(operation) => operation.process(staging_root, config, diagnostics),
-            Self::PatchRlb(operation) => operation.process(staging_root, config, diagnostics),
+            Self::PatchFsb(operation) => operation
+                .process(staging_root, config, diagnostics)
+                .map_err(Error::from),
+            Self::PatchRlb(operation) => operation
+                .process(staging_root, config, diagnostics)
+                .map_err(Error::from),
         }
     }
 
@@ -117,11 +125,13 @@ impl Operation {
         diagnostics: &mut impl for<'a> FnMut(BuildDiagnostic<'a>),
     ) -> Result<()> {
         match self {
-            Self::CompileFsb(operation) => operation.check(config, diagnostics),
-            Self::CreateRlb(operation) => operation.check(config, diagnostics),
+            Self::CompileFsb(operation) => {
+                operation.check(config, diagnostics).map_err(Error::from)
+            }
+            Self::CreateRlb(operation) => operation.check(config, diagnostics).map_err(Error::from),
             Self::PatchDol(operation) => operation.check(config, diagnostics).map_err(Error::from),
-            Self::PatchFsb(operation) => operation.check(config, diagnostics),
-            Self::PatchRlb(operation) => operation.check(config, diagnostics),
+            Self::PatchFsb(operation) => operation.check(config, diagnostics).map_err(Error::from),
+            Self::PatchRlb(operation) => operation.check(config, diagnostics).map_err(Error::from),
         }
     }
 }
