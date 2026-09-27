@@ -6,12 +6,13 @@ use walkdir::{DirEntry, WalkDir};
 
 use crate::diagnostic::BuildDiagnostic;
 use crate::error::{Error, Result};
-use crate::formats::{fsb, rlb};
-use crate::rules::{self, Classification, Format};
+use crate::formats::{dol, fsb, rlb};
+use crate::rules::{self, Classification};
 
 pub(crate) enum Operation {
     CompileFsb(fsb::Compile),
     CreateRlb(rlb::Create),
+    PatchDol(dol::Patch),
     PatchFsb(fsb::Patch),
     PatchRlb(rlb::Patch),
 }
@@ -21,6 +22,7 @@ impl Operation {
         match self {
             Self::CompileFsb(operation) => operation.source(),
             Self::CreateRlb(operation) => operation.source(),
+            Self::PatchDol(operation) => operation.directory(),
             Self::PatchFsb(operation) => operation.directory(),
             Self::PatchRlb(operation) => operation.directory(),
         }
@@ -30,6 +32,7 @@ impl Operation {
         match self {
             Self::CompileFsb(operation) => operation.target(),
             Self::CreateRlb(operation) => operation.target(),
+            Self::PatchDol(operation) => operation.target(),
             Self::PatchFsb(operation) => operation.target(),
             Self::PatchRlb(operation) => operation.target(),
         }
@@ -81,18 +84,11 @@ impl Operation {
             })?
             .to_path_buf();
         let operation = match classification {
-            Classification::LooseFile(Format::Fsb) => {
-                Self::CompileFsb(fsb::Compile::new(source, &relative))
-            }
-            Classification::LooseFile(Format::Rlb) => {
-                Self::CreateRlb(rlb::Create::new(source, &relative))
-            }
-            Classification::PatchDirectory(Format::Fsb) => {
-                Self::PatchFsb(fsb::Patch::new(source, &relative)?)
-            }
-            Classification::PatchDirectory(Format::Rlb) => {
-                Self::PatchRlb(rlb::Patch::new(source, &relative)?)
-            }
+            Classification::CompileFsb => Self::CompileFsb(fsb::Compile::new(source, &relative)),
+            Classification::CreateRlb => Self::CreateRlb(rlb::Create::new(source, &relative)),
+            Classification::PatchDol => Self::PatchDol(dol::Patch::new(source, &relative)),
+            Classification::PatchFsb => Self::PatchFsb(fsb::Patch::new(source, &relative)?),
+            Classification::PatchRlb => Self::PatchRlb(rlb::Patch::new(source, &relative)?),
         };
 
         Ok(Some(operation))
@@ -107,6 +103,9 @@ impl Operation {
         match self {
             Self::CompileFsb(operation) => operation.process(staging_root, config, diagnostics),
             Self::CreateRlb(operation) => operation.process(staging_root, config, diagnostics),
+            Self::PatchDol(operation) => operation
+                .process(staging_root, config, diagnostics)
+                .map_err(Error::from),
             Self::PatchFsb(operation) => operation.process(staging_root, config, diagnostics),
             Self::PatchRlb(operation) => operation.process(staging_root, config, diagnostics),
         }
@@ -120,6 +119,7 @@ impl Operation {
         match self {
             Self::CompileFsb(operation) => operation.check(config, diagnostics),
             Self::CreateRlb(operation) => operation.check(config, diagnostics),
+            Self::PatchDol(operation) => operation.check(config, diagnostics).map_err(Error::from),
             Self::PatchFsb(operation) => operation.check(config, diagnostics),
             Self::PatchRlb(operation) => operation.check(config, diagnostics),
         }

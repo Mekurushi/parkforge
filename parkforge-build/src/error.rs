@@ -6,6 +6,8 @@ use parkforge_types::BuildConfigValue;
 use rlb_domain::Error as RlbError;
 use thiserror::Error;
 
+use crate::formats::dol::Error as DolError;
+
 #[derive(Debug)]
 pub enum RlbValueLocation {
     Row(usize),
@@ -25,6 +27,9 @@ impl fmt::Display for RlbValueLocation {
 // errrors into fsb-errors etc.
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error(transparent)]
+    Dol(#[from] DolError),
+
     #[error("sources {first:?} and {second:?} both target {target:?}")]
     ConflictingTarget {
         target: PathBuf,
