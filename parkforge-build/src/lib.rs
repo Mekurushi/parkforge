@@ -1,4 +1,5 @@
 mod build;
+mod check;
 mod diagnostic;
 mod error;
 mod formats;
@@ -8,6 +9,7 @@ mod rules;
 mod staging;
 
 pub use build::{BuildProgress, build};
+pub use check::{CheckReport, check};
 pub use diagnostic::{BuildDiagnostic, DiagnosticLabel, DiagnosticLabelStyle, DiagnosticSeverity};
 pub use error::{Error, Result};
 pub use formats::dol::Error as DolError;

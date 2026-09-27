@@ -29,6 +29,37 @@ fn main() -> ExitCode {
             },
             |diagnostic| diagnostic::render(&diagnostic),
         ),
+        cli::Command::Check(args) => {
+            return match parkforge::check(&args.project, |game_id, diagnostic| {
+                eprintln!("{game_id}:");
+                diagnostic::render(&diagnostic);
+            }) {
+                Ok(report) => {
+                    for revision in report.revisions() {
+                        match revision.result() {
+                            Ok(report) => {
+                                for error in report.errors() {
+                                    eprintln!("error [{}]: {error}", revision.game_id());
+                                }
+                            }
+                            Err(error) => {
+                                eprintln!("error [{}]: {error}", revision.game_id());
+                            }
+                        }
+                    }
+                    if report.is_success() {
+                        eprintln!("Project check succeeded");
+                        ExitCode::SUCCESS
+                    } else {
+                        ExitCode::FAILURE
+                    }
+                }
+                Err(error) => {
+                    eprintln!("error: {error}");
+                    ExitCode::FAILURE
+                }
+            };
+        }
         cli::Command::Rebuild(args) => {
             let output = args.output_iso.unwrap_or_else(|| {
                 args.project

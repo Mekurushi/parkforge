@@ -13,8 +13,15 @@ pub(crate) struct Cli {
 #[derive(Subcommand)]
 pub(crate) enum Command {
     Build(BuildArgs),
+    Check(CheckArgs),
     Overlay(OverlayArgs),
     Rebuild(RebuildArgs),
+}
+
+#[derive(Args)]
+pub(crate) struct CheckArgs {
+    #[arg(long, default_value = ".")]
+    pub project: PathBuf,
 }
 
 #[derive(Args)]

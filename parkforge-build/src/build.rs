@@ -138,7 +138,7 @@ impl Build {
     }
 }
 
-fn validate_target_ownership(operations: &[Operation]) -> Result<()> {
+pub(crate) fn validate_target_ownership(operations: &[Operation]) -> Result<()> {
     let mut owners = HashMap::new();
     for operation in operations {
         if let Some(first) = owners.insert(operation.target(), operation.source()) {
