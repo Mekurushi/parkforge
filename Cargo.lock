@@ -583,7 +583,6 @@ dependencies = [
  "annotate-snippets",
  "clap",
  "parkforge",
- "parkforge-types",
 ]
 
 [[package]]

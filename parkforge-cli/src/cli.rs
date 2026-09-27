@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
-use parkforge_types::GameId;
+use parkforge::GameId;
 
 #[derive(Parser)]
 #[command(name = "parkforge")]
