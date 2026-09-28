@@ -9,6 +9,9 @@ use std::fs::create_dir_all;
 use std::io::{ErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
+const NKIT_MAGIC_OFFSET: u64 = 0x200;
+const NKIT_MAGIC: [u8; 4] = *b"NKIT";
+
 struct PreparedPartition {
     kind: PartitionKind,
     fst: Fst,
@@ -33,7 +36,8 @@ fn binrw_write_file(p: &Path, value: &impl for<'a> BinWrite<Args<'a> = ()>) -> R
 }
 
 impl<R: Read + Seek> WiiIsoExtractor<R> {
-    pub fn from_reader(reader: R) -> Result<Self> {
+    pub fn from_reader(mut reader: R) -> Result<Self> {
+        reject_nkit_iso(&mut reader)?;
         let iso = WiiIsoReader::open(reader).map_err(|source| Error::ParseIso { source })?;
         Ok(WiiIsoExtractor {
             iso,
@@ -173,6 +177,23 @@ impl<R: Read + Seek> WiiIsoExtractor<R> {
                 &partition.partition_reader.get_partition_header().ticket,
             )?;
         }
+        Ok(())
+    }
+}
+
+fn reject_nkit_iso<R: Read + Seek>(reader: &mut R) -> Result<()> {
+    let _position = reader
+        .seek(SeekFrom::Start(NKIT_MAGIC_OFFSET))
+        .map_err(|source| Error::InspectIsoFormat { source })?;
+
+    let mut magic = [0_u8; NKIT_MAGIC.len()];
+    reader
+        .read_exact(&mut magic)
+        .map_err(|source| Error::InspectIsoFormat { source })?;
+
+    if magic == NKIT_MAGIC {
+        Err(Error::UnsupportedNkitIso)
+    } else {
         Ok(())
     }
 }

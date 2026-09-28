@@ -27,6 +27,15 @@ pub enum Error {
         source: binrw::Error,
     },
 
+    #[error("failed to inspect Wii ISO format: {source}")]
+    InspectIsoFormat {
+        #[source]
+        source: io::Error,
+    },
+
+    #[error("NKit ISOs are not supported; use a standard Wii ISO")]
+    UnsupportedNkitIso,
+
     #[error("disc header contains an invalid Wii game ID: {raw:?}")]
     InvalidGameId { raw: [u8; 6] },
 
