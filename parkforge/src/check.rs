@@ -67,7 +67,7 @@ pub enum RevisionCheckError {
     Build(#[source] Box<parkforge_build::Error>),
 }
 
-pub fn check<D>(project_root: &Path, mut diagnostics: D) -> Result<ProjectCheckReport>
+pub fn check<D>(project_root: &Path, diagnostics: D) -> Result<ProjectCheckReport>
 where
     D: for<'a> FnMut(&GameId, BuildDiagnostic<'a>),
 {
@@ -89,7 +89,32 @@ where
             });
         }
     };
+    check_project(&project, &config, diagnostics)
+}
 
+pub fn check_with_config<D>(
+    project_root: &Path,
+    config: &BuildConfig,
+    diagnostics: D,
+) -> Result<ProjectCheckReport>
+where
+    D: for<'a> FnMut(&GameId, BuildDiagnostic<'a>),
+{
+    let project = Project::open(project_root).map_err(|source| Error::Project {
+        root: project_root.to_path_buf(),
+        source: Box::new(source),
+    })?;
+    check_project(&project, config, diagnostics)
+}
+
+fn check_project<D>(
+    project: &Project,
+    config: &BuildConfig,
+    mut diagnostics: D,
+) -> Result<ProjectCheckReport>
+where
+    D: for<'a> FnMut(&GameId, BuildDiagnostic<'a>),
+{
     let mut revisions = Vec::new();
     for game_id in project.config().games.keys() {
         let sources = Builder::new()
@@ -97,7 +122,7 @@ where
             .tempdir()
             .map_err(|source| Error::CreateMergedSources { source })?;
         let result = match project.merge_sources(game_id, sources.path()) {
-            Ok(()) => parkforge_build::check(sources.path(), &config, |diagnostic| {
+            Ok(()) => parkforge_build::check(sources.path(), config, |diagnostic| {
                 diagnostics(game_id, diagnostic);
             })
             .map_err(|source| RevisionCheckError::Build(Box::new(source))),

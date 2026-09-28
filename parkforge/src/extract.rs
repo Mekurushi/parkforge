@@ -3,9 +3,9 @@ use std::path::Path;
 use parkforge_game_tree::{ExtractionProgress, extract_game_tree};
 use parkforge_project::Project;
 use parkforge_types::GameId;
-use parkforge_wii_disc::read_game_id;
 
 use crate::error::{Error, Result};
+use crate::identify::identify;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ExtractionPaths<'a> {
@@ -21,10 +21,7 @@ pub fn extract<F>(project_root: &Path, input_iso: &Path, progress: F) -> Result<
 where
     F: FnMut(ExtractionProgress),
 {
-    let game_id = read_game_id(input_iso).map_err(|source| Error::ReadGameId {
-        input: input_iso.to_path_buf(),
-        source: Box::new(source),
-    })?;
+    let game_id = identify(input_iso)?;
     let project = Project::open(project_root).map_err(|source| Error::Project {
         root: project_root.to_path_buf(),
         source: Box::new(source),
@@ -49,10 +46,7 @@ pub fn extract_to<F>(paths: ExtractionPaths<'_>, progress: F) -> Result<GameId>
 where
     F: FnMut(ExtractionProgress),
 {
-    let game_id = read_game_id(paths.input_iso).map_err(|source| Error::ReadGameId {
-        input: paths.input_iso.to_path_buf(),
-        source: Box::new(source),
-    })?;
+    let game_id = identify(paths.input_iso)?;
     extract_to_with_game_id(paths, game_id, progress)
 }
 
