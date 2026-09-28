@@ -5,5 +5,6 @@ mod project;
 
 pub use build_config::read_build_config;
 pub use error::{Error, Result};
+pub use overlay::merge_sources;
 pub use parkforge_types::{BuildConfig, BuildConfigValue};
 pub use project::{GameRevision, Project, ProjectConfig, ProjectMetadata};

@@ -6,7 +6,7 @@ use walkdir::WalkDir;
 
 use crate::error::{Error, Result};
 
-pub(crate) fn merge_sources(shared: &Path, revision: &Path, destination: &Path) -> Result<()> {
+pub fn merge_sources(shared: &Path, revision: &Path, destination: &Path) -> Result<()> {
     // orchestration is responsible for temporary lifetime contract of destination
     let metadata = fs::metadata(destination).map_err(|source| Error::InspectMergeDestination {
         path: destination.to_path_buf(),

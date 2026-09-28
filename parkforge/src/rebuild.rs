@@ -6,6 +6,16 @@ use parkforge_types::GameId;
 
 use crate::error::{Error, Result};
 
+#[derive(Debug, Clone, Copy)]
+pub struct RebuildPaths<'a> {
+    /// expects the game tree at root
+    /// in the project convention it would be `build/<game-id>`
+    pub source: &'a Path,
+    /// creates iso at path
+    /// replaces existing output
+    pub destination_iso: &'a Path,
+}
+
 pub fn rebuild<F>(
     project_root: &Path,
     game_id: &GameId,
@@ -25,8 +35,23 @@ where
             root: project.root().to_path_buf(),
             source: Box::new(source),
         })?;
-    rebuild_game_tree(&build, output_iso, progress).map_err(|source| Error::Rebuild {
-        output: output_iso.to_path_buf(),
-        source: Box::new(source),
+    rebuild_from(
+        RebuildPaths {
+            source: &build,
+            destination_iso: output_iso,
+        },
+        progress,
+    )
+}
+
+pub fn rebuild_from<F>(paths: RebuildPaths<'_>, progress: F) -> Result<()>
+where
+    F: FnMut(RebuildProgress),
+{
+    rebuild_game_tree(paths.source, paths.destination_iso, progress).map_err(|source| {
+        Error::Rebuild {
+            output: paths.destination_iso.to_path_buf(),
+            source: Box::new(source),
+        }
     })
 }

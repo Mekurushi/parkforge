@@ -39,6 +39,16 @@ pub enum Error {
         source: std::io::Error,
     },
 
+    #[error(
+        "failed to merge shared sources {shared:?} and revision sources {revision:?}: {source}"
+    )]
+    MergeSources {
+        shared: PathBuf,
+        revision: PathBuf,
+        #[source]
+        source: Box<parkforge_project::Error>,
+    },
+
     #[error("failed to build game tree at {destination:?}: {source}")]
     Build {
         destination: PathBuf,
