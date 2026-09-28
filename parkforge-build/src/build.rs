@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use parkforge_staging::StagedDirectory;
 use parkforge_types::BuildConfig;
 use walkdir::WalkDir;
 
@@ -9,7 +10,6 @@ use crate::diagnostic::BuildDiagnostic;
 use crate::error::{Error, Result};
 use crate::operation::Operation;
 use crate::paths::{absolute_directory, validate_no_overlap};
-use crate::staging::Staging;
 
 pub enum BuildProgress {
     CopyingOriginal,
@@ -36,7 +36,7 @@ where
 struct Build {
     original: PathBuf,
     operations: Vec<Operation>,
-    staging: Staging,
+    staging: StagedDirectory,
     config: BuildConfig,
 }
 
@@ -55,7 +55,7 @@ impl Build {
         for operation in &operations {
             operation.check(&config, diagnostics)?;
         }
-        let staging = Staging::new(destination)?;
+        let staging = StagedDirectory::new(destination)?;
         validate_no_overlap(&original, staging.destination())?;
         validate_no_overlap(&sources, staging.destination())?;
 
@@ -76,7 +76,8 @@ impl Build {
         self.copy_tree()?;
         self.apply_operations(progress, diagnostics)?;
         progress(BuildProgress::Committing);
-        self.staging.commit()
+        self.staging.commit()?;
+        Ok(())
     }
 
     fn apply_operations(

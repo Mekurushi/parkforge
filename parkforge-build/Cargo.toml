@@ -8,10 +8,10 @@ fsc_compiler = { git = "https://github.com/Mekurushi/pokepark-fsc.git", rev = "a
 fsc_diagnostics = { git = "https://github.com/Mekurushi/pokepark-fsc.git", rev = "a89ac2df497558db3f8a3b603bbadbe82133e070" }
 fsc_patcher = { git = "https://github.com/Mekurushi/pokepark-fsc.git", rev = "a89ac2df497558db3f8a3b603bbadbe82133e070" }
 parkforge-types = { path = "../parkforge-types" }
+parkforge-staging = { path = "../parkforge-staging" }
 rlb-domain = { git = "https://github.com/Mekurushi/pokepark-rlb.git", rev = "affccfdd5afe4a4e7f490da71f568e6d656581b1" }
 serde.workspace = true
 serde_yaml_ng = "0.10.0"
-tempfile.workspace = true
 thiserror.workspace = true
 toml = "1.1.4"
 walkdir.workspace = true

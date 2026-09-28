@@ -5,6 +5,7 @@ members = [
     "parkforge-build",
     "parkforge-game-tree",
     "parkforge-project",
+    "parkforge-staging",
     "parkforge-types",
     "parkforge-wii-disc",
 ]

@@ -4,6 +4,9 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("failed to stage extracted game tree: {0}")]
+    Staging(#[from] parkforge_staging::Error),
+
     #[error("failed to create temporary rebuild-tree directory: {source}")]
     CreateRebuildStaging {
         #[source]

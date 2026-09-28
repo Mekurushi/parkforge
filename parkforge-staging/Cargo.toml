@@ -1,0 +1,11 @@
+[package]
+name = "parkforge-staging"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tempfile.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

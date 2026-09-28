@@ -566,11 +566,11 @@ dependencies = [
  "fsc_compiler",
  "fsc_diagnostics",
  "fsc_patcher",
+ "parkforge-staging",
  "parkforge-types",
  "rlb-domain",
  "serde",
  "serde_yaml_ng",
- "tempfile",
  "thiserror 2.0.18",
  "toml",
  "walkdir",
@@ -590,6 +590,7 @@ name = "parkforge-game-tree"
 version = "0.1.0"
 dependencies = [
  "nlzss11",
+ "parkforge-staging",
  "parkforge-wii-disc",
  "tempfile",
  "thiserror 2.0.18",
@@ -606,6 +607,14 @@ dependencies = [
  "thiserror 2.0.18",
  "toml",
  "walkdir",
+]
+
+[[package]]
+name = "parkforge-staging"
+version = "0.1.0"
+dependencies = [
+ "tempfile",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

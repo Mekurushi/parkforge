@@ -1,6 +1,7 @@
 use crate::archive::{ArchiveFormat, unpack_archive};
 use crate::compression::{CompressionFormat, decompress};
 use crate::error::{Error, Result};
+use parkforge_staging::StagedDirectory;
 use parkforge_wii_disc::{PartitionKind, WiiIsoExtractor};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -17,12 +18,15 @@ pub fn extract_game_tree<F>(iso_path: &Path, destination: &Path, mut progress: F
 where
     F: FnMut(ExtractionProgress),
 {
+    let staging = StagedDirectory::new(destination)?;
     let mut extractor = WiiIsoExtractor::open(iso_path)?;
     extractor.prepare_partition(PartitionKind::Data)?;
-    extractor.extract_to(destination, |disc_progress| {
+    extractor.extract_to(staging.path(), |disc_progress| {
         progress(ExtractionProgress::Disc(disc_progress));
     })?;
-    walk_archive_extraction(destination, &mut progress)
+    walk_archive_extraction(staging.path(), &mut progress)?;
+    staging.commit()?;
+    Ok(())
 }
 
 fn walk_archive_extraction<F>(root: &Path, progress: &mut F) -> Result<()>

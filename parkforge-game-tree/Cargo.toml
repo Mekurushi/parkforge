@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+parkforge-staging = { path = "../parkforge-staging" }
 thiserror.workspace = true
 parkforge-wii-disc = { path = "../parkforge-wii-disc" }
 walkdir.workspace = true

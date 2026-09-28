@@ -8,6 +8,9 @@ use crate::formats::rlb::Error as RlbError;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("failed to stage build directory: {0}")]
+    Staging(#[from] parkforge_staging::Error),
+
     #[error(transparent)]
     Dol(#[from] DolError),
 
@@ -103,46 +106,6 @@ pub enum Error {
     CopyFile {
         input: PathBuf,
         output: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-
-    #[error("failed to create temporary build directory in {parent:?}: {source}")]
-    CreateTemporaryDirectory {
-        parent: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-
-    #[error("failed to move previous build {destination:?} to backup {backup:?}: {source}")]
-    BackupBuild {
-        destination: PathBuf,
-        backup: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-
-    #[error("failed to commit staged build to {destination:?}: {source}")]
-    CommitBuild {
-        destination: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-
-    #[error(
-        "failed to commit build to {destination:?}: {source}; restoring the previous build also failed: {rollback_error}; previous build preserved at {backup:?}"
-    )]
-    RollbackBuild {
-        destination: PathBuf,
-        backup: PathBuf,
-        #[source]
-        source: std::io::Error,
-        rollback_error: std::io::Error,
-    },
-
-    #[error("build committed, but failed to remove backup directory {path:?}: {source}")]
-    RemoveBackup {
-        path: PathBuf,
         #[source]
         source: std::io::Error,
     },

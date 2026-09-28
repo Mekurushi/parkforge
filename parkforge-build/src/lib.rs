@@ -6,7 +6,6 @@ mod formats;
 mod operation;
 mod paths;
 mod rules;
-mod staging;
 
 pub use build::{BuildProgress, build};
 pub use check::{CheckReport, check};
