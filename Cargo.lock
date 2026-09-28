@@ -555,6 +555,7 @@ dependencies = [
  "parkforge-game-tree",
  "parkforge-project",
  "parkforge-types",
+ "parkforge-wii-disc",
  "tempfile",
  "thiserror 2.0.18",
 ]

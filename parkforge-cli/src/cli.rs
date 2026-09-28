@@ -14,8 +14,16 @@ pub(crate) struct Cli {
 pub(crate) enum Command {
     Build(BuildArgs),
     Check(CheckArgs),
+    Extract(ExtractArgs),
     Overlay(OverlayArgs),
     Rebuild(RebuildArgs),
+}
+
+#[derive(Args)]
+pub(crate) struct ExtractArgs {
+    pub input_iso: PathBuf,
+    #[arg(long, default_value = ".")]
+    pub project: PathBuf,
 }
 
 #[derive(Args)]

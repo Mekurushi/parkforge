@@ -60,6 +60,31 @@ fn main() -> ExitCode {
                 }
             };
         }
+        cli::Command::Extract(args) => {
+            let mut last_disc_percent = None;
+            parkforge::extract(&args.project, &args.input_iso, |progress| match progress {
+                parkforge::ExtractionProgress::Disc(progress) => {
+                    let percent = if progress.total() == 0 {
+                        100
+                    } else {
+                        progress.completed() * 100 / progress.total()
+                    };
+                    if last_disc_percent != Some(percent) {
+                        eprintln!("Extracting ISO: {percent}%");
+                        last_disc_percent = Some(percent);
+                    }
+                }
+                parkforge::ExtractionProgress::Archives {
+                    completed,
+                    discovered,
+                } => {
+                    eprintln!("Extracting archives: {completed} / {discovered}");
+                }
+            })
+            .map(|game_id| {
+                eprintln!("Extracted game revision {game_id}");
+            })
+        }
         cli::Command::Rebuild(args) => {
             let output = args.output_iso.unwrap_or_else(|| {
                 args.project

@@ -4,6 +4,21 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("failed to read game ID from ISO {input:?}: {source}")]
+    ReadGameId {
+        input: PathBuf,
+        #[source]
+        source: Box<parkforge_wii_disc::Error>,
+    },
+
+    #[error("failed to extract ISO {input:?} to {destination:?}: {source}")]
+    Extract {
+        input: PathBuf,
+        destination: PathBuf,
+        #[source]
+        source: Box<parkforge_game_tree::Error>,
+    },
+
     #[error("failed to rebuild ISO at {output:?}: {source}")]
     Rebuild {
         output: PathBuf,
