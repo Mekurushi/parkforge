@@ -49,6 +49,17 @@ impl ProjectConfig {
     }
 }
 
+pub fn read_project_config(path: &Path) -> Result<ProjectConfig> {
+    let contents = fs::read_to_string(path).map_err(|source| Error::ReadConfig {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    toml::from_str(&contents).map_err(|source| Error::ParseConfig {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct ProjectMetadata {
@@ -153,14 +164,7 @@ impl Project {
         let root =
             path::absolute(&root).map_err(|source| Error::ResolveRoot { path: root, source })?;
         let config_path = root.join(CONFIG_FILE_NAME);
-        let contents = fs::read_to_string(&config_path).map_err(|source| Error::ReadConfig {
-            path: config_path.clone(),
-            source,
-        })?;
-        let config = toml::from_str(&contents).map_err(|source| Error::ParseConfig {
-            path: config_path,
-            source,
-        })?;
+        let config = read_project_config(&config_path)?;
 
         Ok(Self { root, config })
     }

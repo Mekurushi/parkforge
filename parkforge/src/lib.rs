@@ -1,5 +1,6 @@
 mod build;
 mod check;
+mod config;
 mod error;
 mod extract;
 mod identify;
@@ -10,6 +11,7 @@ pub use build::{BuildPaths, build, build_with_paths};
 pub use check::{
     ProjectCheckReport, RevisionCheckError, RevisionCheckReport, check, check_with_config,
 };
+pub use config::configured_game_ids;
 pub use error::{Error, Result};
 pub use extract::{ExtractionPaths, extract, extract_to};
 pub use identify::identify;
