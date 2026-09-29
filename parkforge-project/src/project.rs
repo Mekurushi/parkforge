@@ -48,8 +48,8 @@ impl ProjectConfig {
         }
     }
 
-    pub fn from_toml_str(contents: &str) -> std::result::Result<Self, toml::de::Error> {
-        toml::from_str(contents)
+    pub fn from_toml_str(contents: &str) -> Result<Self> {
+        toml::from_str(contents).map_err(|source| Error::ParseConfig { path: None, source })
     }
 
     pub fn game_ids(&self) -> impl Iterator<Item = &GameId> {
@@ -62,9 +62,12 @@ pub fn read_project_config(path: &Path) -> Result<ProjectConfig> {
         path: path.to_path_buf(),
         source,
     })?;
-    ProjectConfig::from_toml_str(&contents).map_err(|source| Error::ParseConfig {
-        path: path.to_path_buf(),
-        source,
+    ProjectConfig::from_toml_str(&contents).map_err(|error| match error {
+        Error::ParseConfig { source, .. } => Error::ParseConfig {
+            path: Some(path.to_path_buf()),
+            source,
+        },
+        error => error,
     })
 }
 

@@ -151,9 +151,15 @@ pub enum Error {
         source: std::io::Error,
     },
 
-    #[error("failed to parse project configuration {path:?}: {source}")]
+    #[error(
+        "failed to parse project configuration{path}: {source}",
+        path = path
+            .as_ref()
+            .map(|path| format!(" {path:?}"))
+            .unwrap_or_default()
+    )]
     ParseConfig {
-        path: PathBuf,
+        path: Option<PathBuf>,
         #[source]
         source: toml::de::Error,
     },
