@@ -1,11 +1,32 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use parkforge_game_tree::{ExtractionProgress, extract_game_tree};
 use parkforge_project::Project;
 use parkforge_types::GameId;
+use thiserror::Error;
 
-use crate::error::{Error, Result};
-use crate::identify::identify;
+use crate::identify::{IdentifyError, identify};
+
+#[derive(Debug, Error)]
+pub enum ExtractError {
+    #[error(transparent)]
+    Identify(#[from] IdentifyError),
+
+    #[error("project operation failed for {root:?}: {source}")]
+    Project {
+        root: PathBuf,
+        #[source]
+        source: Box<parkforge_project::Error>,
+    },
+
+    #[error("failed to extract ISO {input:?} to {destination:?}: {source}")]
+    Extract {
+        input: PathBuf,
+        destination: PathBuf,
+        #[source]
+        source: Box<parkforge_game_tree::Error>,
+    },
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct ExtractionPaths<'a> {
@@ -17,18 +38,22 @@ pub struct ExtractionPaths<'a> {
     pub destination: &'a Path,
 }
 
-pub fn extract<F>(project_root: &Path, input_iso: &Path, progress: F) -> Result<GameId>
+pub fn extract<F>(
+    project_root: &Path,
+    input_iso: &Path,
+    progress: F,
+) -> Result<GameId, ExtractError>
 where
     F: FnMut(ExtractionProgress),
 {
     let game_id = identify(input_iso)?;
-    let project = Project::open(project_root).map_err(|source| Error::Project {
+    let project = Project::open(project_root).map_err(|source| ExtractError::Project {
         root: project_root.to_path_buf(),
         source: Box::new(source),
     })?;
     let destination = project
         .original_for(&game_id)
-        .map_err(|source| Error::Project {
+        .map_err(|source| ExtractError::Project {
             root: project.root().to_path_buf(),
             source: Box::new(source),
         })?;
@@ -42,7 +67,7 @@ where
     )
 }
 
-pub fn extract_to<F>(paths: ExtractionPaths<'_>, progress: F) -> Result<GameId>
+pub fn extract_to<F>(paths: ExtractionPaths<'_>, progress: F) -> Result<GameId, ExtractError>
 where
     F: FnMut(ExtractionProgress),
 {
@@ -54,12 +79,12 @@ fn extract_to_with_game_id<F>(
     paths: ExtractionPaths<'_>,
     game_id: GameId,
     progress: F,
-) -> Result<GameId>
+) -> Result<GameId, ExtractError>
 where
     F: FnMut(ExtractionProgress),
 {
     extract_game_tree(paths.input_iso, paths.destination, progress).map_err(|source| {
-        Error::Extract {
+        ExtractError::Extract {
             input: paths.input_iso.to_path_buf(),
             destination: paths.destination.to_path_buf(),
             source: Box::new(source),

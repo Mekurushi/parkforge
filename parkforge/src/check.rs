@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use parkforge_build::{BuildDiagnostic, CheckReport as BuildCheckReport};
 use parkforge_project::{Project, read_build_config};
@@ -6,7 +6,21 @@ use parkforge_types::{BuildConfig, GameId};
 use tempfile::Builder;
 use thiserror::Error;
 
-use crate::error::{Error, Result};
+#[derive(Debug, Error)]
+pub enum CheckError {
+    #[error("project operation failed for {root:?}: {source}")]
+    Project {
+        root: PathBuf,
+        #[source]
+        source: Box<parkforge_project::Error>,
+    },
+
+    #[error("failed to create temporary merged-source directory: {source}")]
+    CreateMergedSources {
+        #[source]
+        source: std::io::Error,
+    },
+}
 
 #[derive(Debug)]
 pub struct ProjectCheckReport {
@@ -33,7 +47,7 @@ impl ProjectCheckReport {
 #[derive(Debug)]
 pub struct RevisionCheckReport {
     game_id: GameId,
-    result: std::result::Result<BuildCheckReport, RevisionCheckError>,
+    result: Result<BuildCheckReport, RevisionCheckError>,
 }
 
 impl RevisionCheckReport {
@@ -43,7 +57,7 @@ impl RevisionCheckReport {
     }
 
     #[must_use]
-    pub fn result(&self) -> std::result::Result<&BuildCheckReport, &RevisionCheckError> {
+    pub fn result(&self) -> Result<&BuildCheckReport, &RevisionCheckError> {
         self.result.as_ref()
     }
 
@@ -53,7 +67,7 @@ impl RevisionCheckReport {
     }
 
     #[must_use]
-    pub fn into_result(self) -> std::result::Result<BuildCheckReport, RevisionCheckError> {
+    pub fn into_result(self) -> Result<BuildCheckReport, RevisionCheckError> {
         self.result
     }
 }
@@ -67,11 +81,11 @@ pub enum RevisionCheckError {
     Build(#[source] Box<parkforge_build::Error>),
 }
 
-pub fn check<D>(project_root: &Path, diagnostics: D) -> Result<ProjectCheckReport>
+pub fn check<D>(project_root: &Path, diagnostics: D) -> Result<ProjectCheckReport, CheckError>
 where
     D: for<'a> FnMut(&GameId, BuildDiagnostic<'a>),
 {
-    let project = Project::open(project_root).map_err(|source| Error::Project {
+    let project = Project::open(project_root).map_err(|source| CheckError::Project {
         root: project_root.to_path_buf(),
         source: Box::new(source),
     })?;
@@ -83,7 +97,7 @@ where
             BuildConfig::default()
         }
         Err(source) => {
-            return Err(Error::Project {
+            return Err(CheckError::Project {
                 root: project.root().to_path_buf(),
                 source: Box::new(source),
             });
@@ -96,11 +110,11 @@ pub fn check_with_config<D>(
     project_root: &Path,
     config: &BuildConfig,
     diagnostics: D,
-) -> Result<ProjectCheckReport>
+) -> Result<ProjectCheckReport, CheckError>
 where
     D: for<'a> FnMut(&GameId, BuildDiagnostic<'a>),
 {
-    let project = Project::open(project_root).map_err(|source| Error::Project {
+    let project = Project::open(project_root).map_err(|source| CheckError::Project {
         root: project_root.to_path_buf(),
         source: Box::new(source),
     })?;
@@ -111,7 +125,7 @@ fn check_project<D>(
     project: &Project,
     config: &BuildConfig,
     mut diagnostics: D,
-) -> Result<ProjectCheckReport>
+) -> Result<ProjectCheckReport, CheckError>
 where
     D: for<'a> FnMut(&GameId, BuildDiagnostic<'a>),
 {
@@ -120,7 +134,7 @@ where
         let sources = Builder::new()
             .prefix(".parkforge-merged-sources-")
             .tempdir()
-            .map_err(|source| Error::CreateMergedSources { source })?;
+            .map_err(|source| CheckError::CreateMergedSources { source })?;
         let result = match project.merge_sources(game_id, sources.path()) {
             Ok(()) => parkforge_build::check(sources.path(), config, |diagnostic| {
                 diagnostics(game_id, diagnostic);

@@ -1,11 +1,43 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use parkforge_build::{BuildDiagnostic, BuildProgress};
 use parkforge_project::{Project, merge_sources, read_build_config};
 use parkforge_types::{BuildConfig, GameId};
 use tempfile::Builder;
+use thiserror::Error;
 
-use crate::error::{Error, Result};
+#[derive(Debug, Error)]
+pub enum BuildError {
+    #[error("project operation failed for {root:?}: {source}")]
+    Project {
+        root: PathBuf,
+        #[source]
+        source: Box<parkforge_project::Error>,
+    },
+
+    #[error("failed to create temporary merged-source directory: {source}")]
+    CreateMergedSources {
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error(
+        "failed to merge shared sources {shared:?} and revision sources {revision:?}: {source}"
+    )]
+    MergeSources {
+        shared: PathBuf,
+        revision: PathBuf,
+        #[source]
+        source: Box<parkforge_project::Error>,
+    },
+
+    #[error("failed to build game tree at {destination:?}: {source}")]
+    Build {
+        destination: PathBuf,
+        #[source]
+        source: Box<parkforge_build::Error>,
+    },
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct BuildPaths<'a> {
@@ -25,12 +57,17 @@ pub struct BuildPaths<'a> {
     pub destination: &'a Path,
 }
 
-pub fn build<P, D>(project_root: &Path, game_id: &GameId, progress: P, diagnostics: D) -> Result<()>
+pub fn build<P, D>(
+    project_root: &Path,
+    game_id: &GameId,
+    progress: P,
+    diagnostics: D,
+) -> Result<(), BuildError>
 where
     P: FnMut(BuildProgress),
     D: for<'a> FnMut(BuildDiagnostic<'a>),
 {
-    let project = Project::open(project_root).map_err(|source| Error::Project {
+    let project = Project::open(project_root).map_err(|source| BuildError::Project {
         root: project_root.to_path_buf(),
         source: Box::new(source),
     })?;
@@ -43,7 +80,7 @@ where
             BuildConfig::default()
         }
         Err(source) => {
-            return Err(Error::Project {
+            return Err(BuildError::Project {
                 root: project.root().to_path_buf(),
                 source: Box::new(source),
             });
@@ -51,20 +88,20 @@ where
     };
     let original = project
         .original_for(game_id)
-        .map_err(|source| Error::Project {
+        .map_err(|source| BuildError::Project {
             root: project.root().to_path_buf(),
             source: Box::new(source),
         })?;
     let destination = project
         .build_for(game_id)
-        .map_err(|source| Error::Project {
+        .map_err(|source| BuildError::Project {
             root: project.root().to_path_buf(),
             source: Box::new(source),
         })?;
     let shared_sources = project.shared_sources();
     let revision_sources = project
         .sources_for(game_id)
-        .map_err(|source| Error::Project {
+        .map_err(|source| BuildError::Project {
             root: project.root().to_path_buf(),
             source: Box::new(source),
         })?;
@@ -86,7 +123,7 @@ pub fn build_with_paths<P, D>(
     config: BuildConfig,
     progress: P,
     diagnostics: D,
-) -> Result<()>
+) -> Result<(), BuildError>
 where
     P: FnMut(BuildProgress),
     D: for<'a> FnMut(BuildDiagnostic<'a>),
@@ -94,9 +131,9 @@ where
     let sources = Builder::new()
         .prefix(".parkforge-merged-sources-")
         .tempdir()
-        .map_err(|source| Error::CreateMergedSources { source })?;
+        .map_err(|source| BuildError::CreateMergedSources { source })?;
     merge_sources(paths.shared_sources, paths.revision_sources, sources.path()).map_err(
-        |source| Error::MergeSources {
+        |source| BuildError::MergeSources {
             shared: paths.shared_sources.to_path_buf(),
             revision: paths.revision_sources.to_path_buf(),
             source: Box::new(source),
@@ -110,7 +147,7 @@ where
         progress,
         diagnostics,
     )
-    .map_err(|source| Error::Build {
+    .map_err(|source| BuildError::Build {
         destination: paths.destination.to_path_buf(),
         source: Box::new(source),
     })
