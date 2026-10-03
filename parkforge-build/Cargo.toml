@@ -4,9 +4,9 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-fsc_compiler = { git = "https://github.com/Mekurushi/pokepark-fsc.git", rev = "a89ac2df497558db3f8a3b603bbadbe82133e070" }
-fsc_diagnostics = { git = "https://github.com/Mekurushi/pokepark-fsc.git", rev = "a89ac2df497558db3f8a3b603bbadbe82133e070" }
-fsc_patcher = { git = "https://github.com/Mekurushi/pokepark-fsc.git", rev = "a89ac2df497558db3f8a3b603bbadbe82133e070" }
+fsc_compiler = { git = "https://github.com/Mekurushi/pokepark-fsc.git", rev = "8034e5bf3a255cf9eaf3aab3ab0af016f308691e" }
+fsc_diagnostics = { git = "https://github.com/Mekurushi/pokepark-fsc.git", rev = "8034e5bf3a255cf9eaf3aab3ab0af016f308691e" }
+fsc_patcher = { git = "https://github.com/Mekurushi/pokepark-fsc.git", rev = "8034e5bf3a255cf9eaf3aab3ab0af016f308691e" }
 parkforge-types = { path = "../parkforge-types" }
 parkforge-staging = { path = "../parkforge-staging" }
 rlb-domain = { git = "https://github.com/Mekurushi/pokepark-rlb.git", rev = "affccfdd5afe4a4e7f490da71f568e6d656581b1" }
