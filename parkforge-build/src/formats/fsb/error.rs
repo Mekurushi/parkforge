@@ -29,7 +29,7 @@ pub enum Error {
     ParseSymbols {
         path: PathBuf,
         #[source]
-        source: fsc_patcher::SymbolTableParseError,
+        source: fsb_patcher::SymbolTableParseError,
     },
 
     #[error("failed to apply FSC patch {path:?} to FSB {target:?}: {source}")]
@@ -37,7 +37,7 @@ pub enum Error {
         path: PathBuf,
         target: PathBuf,
         #[source]
-        source: fsc_patcher::PatchFailure,
+        source: fsb_patcher::PatchFailure,
     },
 
     #[error("FSC source {0:?} must have a valid UTF-8 script name")]

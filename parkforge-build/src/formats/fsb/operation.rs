@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use fsc_compiler::{CompileRequest, compile, required_configs};
-use fsc_patcher::{PatchFailure, PatchRequest, parse_symbol_table, patch};
+use fsb_patcher::{PatchFailure, PatchRequest, parse_symbol_table, patch};
 use parkforge_types::BuildConfig;
 
 use super::config::FscConfigMapper;
