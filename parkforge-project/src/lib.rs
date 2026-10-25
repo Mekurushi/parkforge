@@ -8,5 +8,5 @@ pub use error::{Error, Result};
 pub use overlay::merge_sources;
 pub use parkforge_types::{BuildConfig, BuildConfigValue};
 pub use project::{
-    GameRevision, Project, ProjectConfig, ProjectMetadata, read_project_config,
+    GameRevision, Project, ProjectConfig, ProjectMetadata, SourceMount, read_project_config,
 };

@@ -1,12 +1,18 @@
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{self, Path, PathBuf};
 
 use walkdir::WalkDir;
 
 use crate::error::{Error, Result};
+use crate::project::SourceMount;
 
-pub fn merge_sources(shared: &Path, revision: &Path, destination: &Path) -> Result<()> {
+pub fn merge_sources(
+    shared: &Path,
+    revision: &Path,
+    mounts: &[SourceMount],
+    destination: &Path,
+) -> Result<()> {
     // orchestration is responsible for temporary lifetime contract of destination
     let metadata = fs::metadata(destination).map_err(|source| Error::InspectMergeDestination {
         path: destination.to_path_buf(),
@@ -31,7 +37,68 @@ pub fn merge_sources(shared: &Path, revision: &Path, destination: &Path) -> Resu
     }
 
     copy_sources(shared, destination)?;
-    copy_sources(revision, destination)
+    copy_sources(revision, destination)?;
+    apply_mounts(mounts, destination)
+}
+
+fn apply_mounts(mounts: &[SourceMount], root: &Path) -> Result<()> {
+    let root = path::absolute(root).map_err(|source| Error::InspectSource {
+        path: root.to_path_buf(),
+        source,
+    })?;
+
+    for mount in mounts {
+        let source = resolve_mount_path(&root, &mount.source)?;
+        let metadata = match fs::symlink_metadata(&source) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                return Err(Error::MountSourceNotFound(source));
+            }
+            Err(source_error) => {
+                return Err(Error::InspectSource {
+                    path: source,
+                    source: source_error,
+                });
+            }
+        };
+        if metadata.file_type().is_symlink() {
+            return Err(Error::SourceSymlink(source));
+        }
+        if !metadata.is_dir() {
+            return Err(Error::SourceNotDirectory(source));
+        }
+
+        for configured_target in &mount.targets {
+            let target = resolve_mount_path(&root, configured_target)?;
+            if source.starts_with(&target) || target.starts_with(&source) {
+                return Err(Error::MountOverlap {
+                    mount_source: source.clone(),
+                    target,
+                });
+            }
+            fs::create_dir_all(&target).map_err(|source| Error::CreateDirectory {
+                path: target.clone(),
+                source,
+            })?;
+            copy_sources(&source, &target)?;
+        }
+    }
+    Ok(())
+}
+
+fn resolve_mount_path(root: &Path, configured: &Path) -> Result<PathBuf> {
+    let resolved =
+        path::absolute(root.join(configured)).map_err(|source| Error::InspectSource {
+            path: configured.to_path_buf(),
+            source,
+        })?;
+    if !resolved.starts_with(root) || resolved == root {
+        return Err(Error::MountPathOutsideRoot {
+            path: configured.to_path_buf(),
+            root: root.to_path_buf(),
+        });
+    }
+    Ok(resolved)
 }
 
 fn copy_sources(root: &Path, destination: &Path) -> Result<()> {

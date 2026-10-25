@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use parkforge_build::{BuildDiagnostic, BuildProgress};
-use parkforge_project::{Project, merge_sources, read_build_config};
+use parkforge_project::{Project, SourceMount, merge_sources, read_build_config};
 use parkforge_types::{BuildConfig, GameId};
 use tempfile::Builder;
 use thiserror::Error;
@@ -50,6 +50,8 @@ pub struct BuildPaths<'a> {
     /// game Id resolved part of the src path
     /// in the project convention it would be `src/<game-id>`
     pub revision_sources: &'a Path,
+    /// source mounts applied after shared and revision sources are merged
+    pub source_mounts: &'a [SourceMount],
     /// puts the game tree directly to the destination
     /// does not append another game-ID directory
     /// replaces existing output
@@ -110,6 +112,7 @@ where
             original: &original,
             shared_sources: &shared_sources,
             revision_sources: &revision_sources,
+            source_mounts: &project.config().games[game_id].source_mounts,
             destination: &destination,
         },
         config,
@@ -132,13 +135,17 @@ where
         .prefix(".parkforge-merged-sources-")
         .tempdir()
         .map_err(|source| BuildError::CreateMergedSources { source })?;
-    merge_sources(paths.shared_sources, paths.revision_sources, sources.path()).map_err(
-        |source| BuildError::MergeSources {
-            shared: paths.shared_sources.to_path_buf(),
-            revision: paths.revision_sources.to_path_buf(),
-            source: Box::new(source),
-        },
-    )?;
+    merge_sources(
+        paths.shared_sources,
+        paths.revision_sources,
+        paths.source_mounts,
+        sources.path(),
+    )
+    .map_err(|source| BuildError::MergeSources {
+        shared: paths.shared_sources.to_path_buf(),
+        revision: paths.revision_sources.to_path_buf(),
+        source: Box::new(source),
+    })?;
     parkforge_build::build(
         paths.original,
         sources.path(),

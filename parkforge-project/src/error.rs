@@ -49,6 +49,18 @@ pub enum Error {
     #[error("source symbolic links are not supported: {0:?}")]
     SourceSymlink(PathBuf),
 
+    #[error("source mount path {path:?} resolves outside merged source root {root:?}")]
+    MountPathOutsideRoot { path: PathBuf, root: PathBuf },
+
+    #[error("source mount source {0:?} does not exist")]
+    MountSourceNotFound(PathBuf),
+
+    #[error("source mount source {mount_source:?} and target {target:?} must not overlap")]
+    MountOverlap {
+        mount_source: PathBuf,
+        target: PathBuf,
+    },
+
     #[error("failed to inspect source {path:?}: {source}")]
     InspectSource {
         path: PathBuf,

@@ -35,7 +35,13 @@ impl ProjectConfig {
         if let Some(game_id) = game_id {
             // the right now created map can't contain the game_id already so we're saving the
             // error handling
-            drop(games.insert(game_id, GameRevision { display_name: None }));
+            drop(games.insert(
+                game_id,
+                GameRevision {
+                    display_name: None,
+                    source_mounts: Vec::new(),
+                },
+            ));
         }
 
         Self {
@@ -86,7 +92,16 @@ pub struct ProjectMetadata {
 pub struct GameRevision {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>, // just for easy identification and placeholder for
-                                      // revision specific metadata
+    // revision specific metadata
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub source_mounts: Vec<SourceMount>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+pub struct SourceMount {
+    pub source: PathBuf,
+    pub targets: Vec<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -273,7 +288,8 @@ impl Project {
 
     pub fn merge_sources(&self, game_id: &GameId, destination: &Path) -> Result<()> {
         let revision = self.sources_for(game_id)?;
-        overlay::merge_sources(&self.shared_sources(), &revision, destination)
+        let mounts = &self.config.games[game_id].source_mounts;
+        overlay::merge_sources(&self.shared_sources(), &revision, mounts, destination)
     }
 
     fn ensure_supported(&self, game_id: &GameId) -> Result<()> {
