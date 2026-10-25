@@ -18,7 +18,7 @@ pub use parkforge_build::{
 };
 pub use parkforge_game_tree::{ExtractionProgress, RebuildProgress};
 pub use parkforge_project::{
-    Error as ProjectError, ProjectConfig, Result as ProjectResult, read_project_config,
+    Error as ProjectError, ProjectConfig, Result as ProjectResult, SourceMount, read_project_config,
 };
 pub use parkforge_types::{BuildConfig, BuildConfigValue, GameId, GameIdError};
 pub use rebuild::{RebuildError, RebuildPaths, rebuild, rebuild_from};
